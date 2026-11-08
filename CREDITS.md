@@ -38,3 +38,9 @@
 - snd/karaoke.mp3: CVP701Jam (Lowpass) / omfgdude (OpenGameArt) / CC0（24秒に切った。隣の部屋のカラオケとして）
 - snd/amb_birds.mp3: File:Birds singing in garden.ogg / ezwa / Public domain（20秒に切った）
 - snd/amb_tick.mp3: File:Clock ticking.ogg / natalie / Public domain（16秒に切った）
+
+## 人物と絵
+- img/*.webp: このゲームのために作った架空の人物と小道具の切り絵（art/prompts が元の指示、art/key.py が切り抜き）
+- 部屋・吊りかご・時計・育児日記はコードで描いた形とテクスチャ
+- js/look.js: tom3games の共通部品 / vendor/three*.min.js: three.js（MIT）
+- フォント: Kiwi Maru、Klee One、Shippori Mincho B1（Google Fonts、SIL Open Font License）
