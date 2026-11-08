@@ -18,6 +18,8 @@ SHEETS = {
   'dog_car': ['d_sleep', 'd_chew', 'car'],
   'dog2': ['d_alert', 'd_bark', 'd_sniff'],
   'misc': ['imo', 'cuckoo', 'deli'],
+  'kid_b': ['k_cym', 'k_taiko', 'k_caught'],
+  'papa_b': ['p_vac', 'p_off', 'p_stretch'],
 }
 MANUAL = {'misc': [[0, 565], [565, 1030], [1030, 1536]]}
 SMALL = {}

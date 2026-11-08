@@ -44,3 +44,9 @@
 - 部屋・吊りかご・時計・育児日記はコードで描いた形とテクスチャ
 - js/look.js: tom3games の共通部品 / vendor/three*.min.js: three.js（MIT）
 - フォント: Kiwi Maru、Klee One、Shippori Mincho B1（Google Fonts、SIL Open Font License）
+- snd/cymbal.mp3: File:I_C_15356_a+b_x.ogg (切り出し) / Andreas Richter / CC BY 3.0
+- snd/taiko.mp3: File:02_Taiko2_(short).oga (切り出し) / Scott Harding / CC0
+- snd/taiko2.mp3: File:02_Taiko2_(short).oga (切り出し) / Scott Harding / CC0
+- snd/thunder.mp3: 100 CC0 SFX #2 / rubberduck / CC0
+- snd/vacuum.mp3: 100 CC0 SFX #2 / rubberduck / CC0
+- snd/amb_rain.mp3: File:Rain_and_thunder.ogg (雨だけの10秒) / Caesar / Public domain

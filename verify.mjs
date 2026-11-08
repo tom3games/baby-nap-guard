@@ -97,13 +97,31 @@ await t('押しすぎ（端で何度も押す）→ 揺らしすぎで眠りが�
 })
 // ---- 邪魔者: 全種類を、画面の物の位置を本物の指で押して止める
 await t('全種類の邪魔者を、気配の間に物をクリックして止められる', async () => {
-  const kinds = ['bell', 'dog', 'kid', 'phone', 'karaoke', 'sneeze', 'car', 'clock', 'imo', 'gran'], out = {}
+  const kinds = ['bell', 'dog', 'kid', 'phone', 'karaoke', 'sneeze', 'car', 'clock', 'imo', 'gran', 'kid2', 'kid3', 'thunder', 'vacuum', 'granvisit'], out = {}
   for (const k of kinds) {
-    const xy = await p.evaluate(k => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.post = {}; G.busy = 0; G.S = 80; const n = d.spawn(k); d.step(30); return bn.srcXY(n.src) }, k)
-    const a = await st(p); await tapXY(p, xy); const b = await st(p)
-    out[k] = b.prevented === a.prevented + 1
+    const xy = await p.evaluate(k => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.post = {}; G.busy = 0; G.S = 80; G.fixed = {}; G.next = 999; const n = d.spawn(k); n.warn = 9; d.step(30); return bn.srcXY(n.src) }, k)
+    const a = await st(p); let taps = 0
+    for (let i = 0; i < 5; i++) { const xy2 = await p.evaluate(() => { bn.dbg.G.busy = 0; bn.dbg.render(); const n = bn.dbg.G.noises.find(n => n.st === 'warn'); return n ? bn.srcXY(n.src) : null }); if (!xy2) break; await tapXY(p, xy2); taps++ }
+    const b = await st(p)
+    out[k] = b.prevented === a.prevented + 1 ? taps : false
   }
-  expect(Object.values(out).every(Boolean), JSON.stringify(out)); return out
+  expect(Object.values(out).every(Boolean) && out.kid2 === 2 && out.kid3 === 4 && out.granvisit === 3, JSON.stringify(out)); return out
+})
+await t('場面が4つに分かれ、場面ごとに新しい邪魔者が出る（13:30 のラッパ・14:00 の雷・14:30 の和太鼓とばあば）', async () => {
+  const r = await p.evaluate(() => { const ev = bn.sim('good', 77, { events: true }).events; const first = k => { const e = ev.find(e => e[1] === 'spawn:' + k); return e ? e[0] : null }; return { scenes: ev.filter(e => /^scene:/.test(e[1])).map(e => e[0]), kid: first('kid'), thunder: first('thunder'), kid2: first('kid2'), vacuum: first('vacuum'), kid3: first('kid3'), visit: first('granvisit'), climax: (ev.find(e => e[1] === 'new:climax') || [])[0] } })
+  expect(r.scenes.length === 4 && r.kid >= 30 && r.thunder >= 60 && r.thunder < 70 && r.kid2 >= 60 && r.vacuum >= 60 && r.kid3 >= 90 && r.visit >= 100 && r.climax >= 110, JSON.stringify(r)); return r
+})
+await t('単調さ: 新しいことが起きずに続く最長の時間が上手い bot で25秒未満（v1 は平均42秒・最大59秒）', async () => {
+  const r = await p.evaluate(() => { const gaps = []; for (let s = 1; s <= 8; s++) { const x = bn.sim('good', s * 13, { events: true }), seen = new Set(), ts = [0]; for (const [t, e] of x.events) { const m = /^spawn:(\w+)/.exec(e); if (m && !seen.has(m[1])) { seen.add(m[1]); ts.push(t) } else if (/^new:(scene|combo|climax)/.test(e)) ts.push(t) } ts.push(x.sec); ts.sort((a, b) => a - b); let g = 0; for (let i = 1; i < ts.length; i++) g = Math.max(g, ts[i] - ts[i - 1]); gaps.push(g) } return { max: Math.max(...gaps), avg: Math.round(gaps.reduce((a, b) => a + b, 0) / 8) } })
+  expect(r.max < 25, JSON.stringify(r)); return r
+})
+await t('起こした原因で劇画の一言が変わる（くしゃみ・ガタッ・チャイム）', async () => {
+  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G, out = {}
+    for (const c of ['sneeze', 'jolt', 'bell']) { d.startPlay(); d.pause(true); G.next = 999; G.fixed = {}; G.S = 20; G.th = 0.5; G.v = 0
+      if (c === 'jolt') { G.th = 0; G.v = 2; G.S = 6; bn.push() } else { const n = d.spawn(c); n.t = n.warn; d.tick(60 * 3) }
+      out[c] = [G.over, G.cause, G.line] }
+    d.startPlay(); d.pause(true); return out })
+  expect(r.sneeze[1] === 'sneeze' && /くしゃみ/.test(r.sneeze[2]) && r.jolt[1] === 'jolt' && /揺らし方/.test(r.jolt[2]) && r.bell[1] === 'bell' && /置き配/.test(r.bell[2]), JSON.stringify(r)); return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v[2]]))
 })
 await t('鳴っている最中にクリック → 止まる（鳴ってから）', async () => {
   const xy = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.post = {}; G.busy = 0; G.S = 80; const n = d.spawn('dog'); n.t = n.warn + 0.01; d.step(20); return bn.srcXY('dog') })
@@ -176,6 +194,11 @@ for (const [name, ops] of [
     const m = await q.evaluate(() => ({ mode: bn.state.mode, t: bn.state.t, gek: document.getElementById('gekiga').hidden }))
     expect(r.sup && r.home && m.mode === 'play' && m.t < 2 && m.gek, JSON.stringify({ r, m })); return r
   })
+  await t('もう一回のあと、もう一度泣かせても劇画が出る', async () => {
+    await q.evaluate(() => { bn.dbg.G.S = 0.5; bn.dbg.speed(3) })
+    await q.waitForFunction(() => !document.getElementById('gekiga').hidden, null, { timeout: 15000 })
+    return true
+  })
   await q.close()
 }
 // ---- 15時まで守りきる
@@ -187,7 +210,8 @@ for (const [name, ops] of [
     await q.waitForFunction(() => !document.getElementById('vResult').hidden, null, { timeout: 40000 }); await q.waitForTimeout(500)
     const r = await q.evaluate(() => window.__lastResult)
     await q.screenshot({ path: ROOT + '/shots/v-result-win.png' })
-    expect(!r.ko && r.points >= 80 && r.title, JSON.stringify(r)); return { points: r.points, title: r.title }
+    const milk = await q.evaluate(() => document.getElementById('gekigaImg').src.split('/').pop())
+    expect(!r.ko && r.points >= 70 && r.title && milk === 'g_milk.webp' && /悪くない/.test(r.line), JSON.stringify({ r, milk })); return { points: r.points, title: r.title, reward: milk }
   })
   await q.close()
 }

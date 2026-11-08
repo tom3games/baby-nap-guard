@@ -25,6 +25,7 @@ Snd.def({
   bell: S_('bell'), bark: [S_('bark1'), S_('bark2'), S_('bark3')], horn: [S_('horn1'), S_('horn2')], sneeze: S_('sneeze'),
   buzz: [S_('buzz1'), S_('buzz2')], sms: S_('sms'), ring: S_('ring'), knock: S_('knock'), car: S_('car'), whistle: S_('whistle'),
   clockbell: S_('clockbell'), window: S_('window'), paper: S_('paper'), cock: S_('cock'), chew: S_('chew'), squeak: S_('squeak'), pop: S_('pop'),
+  cymbal: S_('cymbal'), taiko: [S_('taiko'), S_('taiko2')], thunder: S_('thunder'),
   j_win: S_('j_win'), j_gekiga: S_('j_gekiga'), j_rare: S_('j_rare'), click: S_('click'),
 })
 let muted = store.get('bn_mute') === '1'
@@ -107,7 +108,7 @@ const outTex = canvasTex(512, 256, (x, w, h) => {
   x.fillStyle = '#8f9a92'; x.fillRect(0, 200, w, 56); x.fillStyle = '#b7beb6'; x.fillRect(0, 198, w, 4)
   x.strokeStyle = '#4a4038'; x.lineWidth = 6; x.beginPath(); x.moveTo(440, 30); x.lineTo(440, 205); x.stroke(); x.lineWidth = 1.5; x.beginPath(); x.moveTo(0, 50); x.quadraticCurveTo(220, 80, 440, 40); x.lineTo(512, 46); x.stroke()
 })
-plane(3.2, 1.6, new THREE.MeshBasicMaterial({ map: outTex, toneMapped: false }), [0.5, 1.5, -4.2])
+const outMat = new THREE.MeshBasicMaterial({ map: outTex, toneMapped: false }); plane(3.2, 1.6, outMat, [0.5, 1.5, -4.2])
 const outLight = new THREE.PointLight('#fff4dc', 1.4, 4, 1.4); outLight.position.set(0.55, 1.5, -1.5); scene.add(outLight)
 const winFrame = std('#f4f0e8', { r: 0.5 })
 box(0.84, 0.05, 0.08, winFrame, [0.55, WIN.y0, R.z0]); box(0.84, 0.05, 0.08, winFrame, [0.55, WIN.y1, R.z0])
@@ -203,7 +204,8 @@ const SRC = {
   window: new THREE.Vector3(0.55, 1.4, R.z0),
   clock: new THREE.Vector3(-0.17, 1.62, R.z0 + 0.05),
 }
-const SRC_OF = { bell: 'door', dog: 'dog', kid: 'kid', phone: 'phone', gran: 'phone', karaoke: 'frame', sneeze: 'papa', car: 'window', imo: 'window', clock: 'clock' }
+const SRC_OF = { bell: 'door', dog: 'dog', kid: 'kid', kid2: 'kid', kid3: 'kid', phone: 'phone', gran: 'phone', karaoke: 'frame', sneeze: 'papa', vacuum: 'papa', car: 'window', imo: 'window', thunder: 'window', clock: 'clock', granvisit: 'door' }
+const PAPA_SOFA = SRC.papa.clone()
 
 // ---- カメラ（かごの横に座っている自分の目。縦長ほど画角を広げる）
 const CAM = { p: new THREE.Vector3(0, 1.3, 1.16), t: new THREE.Vector3(0.02, 0.7, -0.75) }
@@ -219,7 +221,14 @@ addEventListener('resize', resize); resize()
 // ============================================================ 遊びの状態（sim でも同じ処理を回す）
 const DUR = 120, W0 = 2 * Math.PI / 1.7, DAMP = 0.17, KICK = 0.45, WIN_K = 0.7, OK_LO = 0.3, OK_HI = 0.82, BUSY = 0.42, JOLT = 8
 const TUT_KEY = 'bn_tut1'
-const POOL = ['bell', 'dog', 'kid', 'phone', 'karaoke', 'sneeze', 'car']
+// v2: 4つの場面。場面ごとに新しい邪魔者・状況を1つ以上足す。場面の変わり目は凪（何も来ない数秒）
+const SC = [
+  { from: 0, to: 26, pool: ['bell', 'dog', 'phone'], gap: [6.5, 8.5] },
+  { from: 32, to: 56, pool: ['kid', 'karaoke', 'car', 'phone', 'dog', 'sneeze'], gap: [5, 7] },
+  { from: 63, to: 86, pool: ['thunder', 'kid2', 'dog', 'sneeze', 'phone', 'karaoke'], gap: [4, 5.4] },
+  { from: 92, to: 108, pool: ['kid3', 'gran', 'car', 'dog', 'bell', 'vacuum'], gap: [3.4, 4.6] },
+]
+const POOL = SC[0].pool
 const G = { mode: 'boot', t: 0, clock: 0, texts: { bubble: null, hint: null }, paused: false, speed: 1, playNo: 0, post: {}, postKind: {}, noises: [], S: 80, th: 0, v: 0, hist: [], log: [] }
 let rng = mulberry(1)
 const rnd = (a, b) => a + (b - a) * rng()
@@ -234,9 +243,9 @@ function newGame(seed, learn = false) {
   G.next = learn ? 10 : 6.5; G.lastKinds = []
   G.carKind = params.has('imo') ? 'imo' : rng() < 0.3 ? 'imo' : 'car'
   G.granLeft = rng() < 0.4 ? 1 : 0
-  G.clockDone = false
+  G.clockDone = false; G.scene = -1; G.fixed = { combo: 44 + rng() * 6, vacuum: 72 + rng() * 6, visit: 101 + rng() * 3, climax: 111 }; G.hurt = {}; G.shown = {}; G.curtain = 0; G.firstSeen = {}
   G.eyeT = 0; G.eyeUsed = rng() < 0.6 ? false : true; G.popT = 0; G.popAt = null; G.bubbleOn = true; G.fussAt = 0; G.talkAt = rnd(18, 30); G.papaTalkAt = rnd(35, 50)
-  G.strongT = 0
+  G.strongT = 0; G.minLate = null; G.gek = G.cock = G.lineOn = G.blk = G.wail2 = false; G.cause = null; G.line = ''
   G.learn = learn ? { push: 0, handled: 0, shown: '', joltT: 0 } : null
 }
 const progress = () => clamp(G.t / DUR, 0, 1)
@@ -260,7 +269,7 @@ function push() {
     return 'ok'
   }
   // 途中で押した: ガタッ
-  G.v += (rng() < 0.5 ? 1 : -1) * W0 * 0.14; G.S -= JOLT; G.jolts++; ev('jolt')
+  G.v += (rng() < 0.5 ? 1 : -1) * W0 * 0.14; G.S -= JOLT; hurt('jolt', JOLT); G.jolts++; ev('jolt')
   sfx('jolt', { vol: 0.75 }); sfx('creak', { vol: 0.6, rate: 0.8 })
   if (!SIM) { fx.shake(0.02, 0.2); handTo(null) }
   if (G.learn) G.learn.joltT = 2.2
@@ -277,6 +286,8 @@ function tapSrc(src) {
   if (!SIM) handTo(src)
   const n = G.noises.find(n => n.src === src && (n.st === 'warn' || n.st === 'on'))
   if (!n) { G.misses++; ev('miss:' + src); return 'miss' }
+  const D0 = BN.NOISE[n.kind]
+  if (D0.need && (n.hits = (n.hits || 0) + 1) < D0.need) { ev('hit:' + n.kind); sfx(n.kind === 'kid3' ? 'taiko' : 'paper', { vol: 0.25 }); if (!SIM && !G.shown.multi) { G.shown.multi = 1; say('hint', L(BN.HINT.multi), '', 2) } return 'hit' }
   const was = n.st
   n.st = 'done'; n.t = 0
   if (was === 'warn') G.prevented++; else G.stopped++
@@ -286,40 +297,60 @@ function tapSrc(src) {
   if (G.learn) G.learn.handled++
   const D = BN.NOISE[n.kind]
   sayAt(src, L(D.done), 'done', 1.6)
-  const S2 = { bell: 'paper', dog: 'chew', kid: null, phone: 'paper', gran: 'paper', karaoke: 'knock', sneeze: 'squeak', car: 'window', imo: 'window', clock: null }[n.kind]
+  const S2 = { bell: 'paper', dog: 'chew', kid: null, phone: 'paper', gran: 'paper', karaoke: 'knock', sneeze: 'squeak', car: 'window', imo: 'window', clock: null, thunder: 'window', vacuum: 'click', granvisit: 'paper' }[n.kind]
   if (S2) sfx(S2, { vol: n.kind === 'karaoke' ? 0.4 : 0.5 })
   if (n.kind === 'karaoke') { if (!SIM) Snd.loop('karaoke', null) }
   if (n.kind === 'car' || n.kind === 'imo') G.winShut = 3.2
+  if (n.kind === 'thunder') { G.winShut = 4; G.curtain = 5 }
+  if (n.kind === 'vacuum' && !SIM) Snd.loop('vac', null)
   return was === 'warn' ? 'prevent' : 'stop'
 }
 function spawn(kind) {
   const D = BN.NOISE[kind], p = progress()
-  const warn = G.learn && !G.noises.length ? 4.6 : D.warn * lerp(0.95, 0.65, p)
+  const warn = G.learn && !G.noises.length ? 4.6 : D.warn * lerp(0.95, 0.75, p)
   const n = { kind, src: SRC_OF[kind], st: 'warn', t: 0, warn, len: D.len, at: G.t, tick: 0 }
   G.noises.push(n); ev('spawn:' + kind)
+  if (!G.firstSeen[kind]) { G.firstSeen[kind] = 1; ev('new:' + kind) }
+  if (kind === 'thunder') { if (!SIM) { flash(0.75); if (!G.shown.thunder) { G.shown.thunder = 1; say('hint', L(BN.HINT.thunder), '', 2.4) } } }
+  if (kind === 'vacuum' && !SIM && !G.shown.vacuum) { G.shown.vacuum = 1; say('hint', L(BN.HINT.vacuum), '', 2.4) }
   // 気配の音（小さい）
   if (kind === 'car' || kind === 'imo') sfx('car', { vol: 0.18, dest: 'muf' })
   return n
 }
 function busySrc(src) { return G.noises.some(n => n.src === src && (n.st === 'warn' || n.st === 'on')) || (G.post[src] || 0) > 0 }
 function schedule() {
-  const p = progress()
-  // 14:00 の鳩時計（決まった時刻）
-  if (!G.clockDone && G.t >= 58.5) { G.clockDone = true; if (!busySrc('clock')) spawn('clock') }
-  if (G.t < G.next || G.t > DUR - 4) return
-  let cands = POOL.filter(k => !busySrc(SRC_OF[k]) && !G.lastKinds.includes(k))
+  // 場面の切り替え（凪のあいだに場面の名前を出す）
+  const si = G.t >= 90 ? 3 : G.t >= 60 ? 2 : G.t >= 30 ? 1 : 0
+  if (si !== G.scene) {
+    G.scene = si; ev('scene:' + si); ev('new:scene' + si)
+    if (si > 0 && !SIM && !G.learn) say('hint', L(BN.SCENES[si].t), '', 2.2)
+    if (si === 2 && !SIM) { Snd.loop('rain', S_('amb_rain'), 0.22); Snd.loop('amb', null) }
+    if (si > 0) G.next = Math.max(G.next, SC[si].from)
+  }
+  // 決まった時刻の出来事
+  if (!G.clockDone && G.t >= 61) { G.clockDone = true; if (!busySrc('clock')) spawn('clock') }
+  if (G.fixed.combo && G.t >= G.fixed.combo) { G.fixed.combo = 0; if (!busySrc('door') && !busySrc('dog')) { spawn('bell'); spawn('dog').warn += 0.6; ev('new:combo'); if (!SIM) say('hint', L(BN.COMBO), '', 1.8) } }
+  if (G.fixed.vacuum && G.t >= G.fixed.vacuum) { if (!busySrc('papa')) { G.fixed.vacuum = 0; spawn('vacuum') } }
+  if (G.fixed.visit && G.t >= G.fixed.visit) { if (!busySrc('door')) { G.fixed.visit = 0; spawn('granvisit') } }
+  if (G.fixed.climax && G.t >= G.fixed.climax) {
+    G.fixed.climax = 0; ev('new:climax'); if (!SIM) say('hint', L(BN.CLIMAX), '', 2)
+    let d = 0; for (const k of ['kid3', 'dog', 'vacuum', 'gran']) { if (!busySrc(SRC_OF[k])) { const kk = k; setTimeout0(d, () => { if (!G.over && !busySrc(SRC_OF[kk])) spawn(kk) }); d += 0.35 } }
+  }
+  const sc = SC[si]
+  if (G.t < G.next || G.t < sc.from || G.t > sc.to) return
+  let cands = sc.pool.filter(k => !busySrc(SRC_OF[k]) && !G.lastKinds.includes(k))
+  if (si === 2 && !G.firstSeen.thunder) cands = cands.includes('thunder') ? ['thunder'] : cands
   if (G.learn && !G.noises.length) cands = ['dog']
   if (!cands.length) { G.next = G.t + 1; return }
   let k = cands[Math.floor(rng() * cands.length)]
   if (k === 'car') k = G.carKind
-  if (k === 'phone' && G.granLeft > 0 && p > 0.35 && rng() < 0.5) { k = 'gran'; G.granLeft-- }
-  spawn(k); G.lastKinds = [k === 'imo' ? 'car' : k === 'gran' ? 'phone' : k, ...G.lastKinds].slice(0, 2)
-  // 後半はたまに2つ重なる
-  if (p > 0.45 && rng() < lerp(0.2, 0.5, p)) {
-    const c2 = POOL.filter(x => !busySrc(SRC_OF[x]) && x !== k && x !== 'car')
-    if (c2.length) { const k2 = c2[Math.floor(rng() * c2.length)]; setTimeout0(1.3, () => { if (!G.over && !busySrc(SRC_OF[k2])) spawn(k2) }) }
+  spawn(k); G.lastKinds = [k === 'imo' ? 'car' : k, ...G.lastKinds].slice(0, 2)
+  // 場面2から、たまに2つ重なる（どちらを先に止めるか）
+  if (si >= 2 && rng() < (si === 3 ? 0.6 : 0.4)) {
+    const c2 = sc.pool.filter(x => !busySrc(SRC_OF[x]) && x !== k && SRC_OF[x] !== SRC_OF[k] && x !== 'car')
+    if (c2.length) { const k2 = c2[Math.floor(rng() * c2.length)]; setTimeout0(0.9, () => { if (!G.over && !busySrc(SRC_OF[k2])) spawn(k2) }) }
   }
-  G.next = G.t + rnd(lerp(8, 4.2, p), lerp(10, 5.8, p))
+  G.next = G.t + rnd(sc.gap[0], sc.gap[1])
 }
 // sim でも動く「何秒後に」
 function setTimeout0(sec, f) { (G.later = G.later || []).push({ at: G.t + sec, f }) }
@@ -330,22 +361,23 @@ function stepNoise(n, dt) {
   if (n.st === 'warn' && n.t >= n.warn) {
     n.st = 'on'; n.t = 0; n.tick = 0; ev('on:' + n.kind)
     sayAt(n.src, L(D.say), 'loud', Math.min(2.4, Math.max(1.4, D.len)))
-    if (D.one) { G.S -= D.one * (G.learn ? 0.5 : 1); if (!SIM) { fx.shake(0.05, 0.35); fx.zoom(0.05, 0.3) } }
+    if (D.one) { G.S -= D.one * (G.learn ? 0.5 : 1); hurt(n.kind, D.one); if (!SIM) { fx.shake(0.05, 0.35); fx.zoom(0.05, 0.3) } }
     onSound(n, true)
     if (n.kind === 'karaoke' && !SIM) Snd.loop('karaoke', S_('karaoke'), 0.5)
+    if (n.kind === 'vacuum' && !SIM) Snd.loop('vac', S_('vacuum'), 0.45)
   } else if (n.st === 'on') {
-    if (D.drain) G.S -= D.drain * dt * (G.learn ? 0.5 : 1)
+    if (D.drain) { G.S -= D.drain * dt * (G.learn ? 0.5 : 1); hurt(n.kind, D.drain * dt) }
     n.tick += dt; onSound(n, false)
-    if (n.t >= n.len) { n.st = 'gone'; n.t = 0; G.through++; G.log.push([n.at, n.kind, 't']); ev('through:' + n.kind); if (n.kind === 'karaoke' && !SIM) Snd.loop('karaoke', null) }
+    if (n.t >= n.len) { n.st = 'gone'; n.t = 0; G.through++; G.log.push([n.at, n.kind, 't']); ev('through:' + n.kind); if (n.kind === 'karaoke' && !SIM) Snd.loop('karaoke', null); if (n.kind === 'vacuum' && !SIM) Snd.loop('vac', null) }
   } else if (n.st === 'done' || n.st === 'gone') {
     if (n.t > 3) n.dead = true
   }
 }
 function onSound(n, first) {
-  const every = { bell: 2.3, dog: 1.05, kid: 1.7, phone: 1.25, gran: 2.0, car: 99, imo: 3, karaoke: 99, sneeze: 99, clock: 1.1 }[n.kind]
+  const every = { bell: 2.3, dog: 1.05, kid: 1.7, kid2: 1.2, kid3: 0.9, phone: 1.25, gran: 2.0, car: 99, imo: 3, karaoke: 99, sneeze: 99, clock: 1.1, thunder: 99, vacuum: 99, granvisit: 1.6 }[n.kind]
   if (!first && n.tick < every) return
   n.tick = 0
-  const map = { bell: ['bell', 0.8], dog: ['bark', 0.75], kid: ['horn', 0.7], phone: ['buzz', 0.55], gran: ['ring', 0.5], car: ['car', 0.7], imo: ['whistle', 0.35], sneeze: ['sneeze', 1], clock: ['clockbell', 0.6] }[n.kind]
+  const map = { bell: ['bell', 0.8], dog: ['bark', 0.75], kid: ['horn', 0.7], kid2: ['cymbal', 0.7], kid3: ['taiko', 0.9], phone: ['buzz', 0.55], gran: ['ring', 0.5], car: ['car', 0.7], imo: ['whistle', 0.35], sneeze: ['sneeze', 1], clock: ['clockbell', 0.6], thunder: ['thunder', 1], granvisit: ['bell', 0.8] }[n.kind]
   if (map) sfx(map[0], { vol: map[1] })
   if (first && n.kind === 'phone') sfx('sms', { vol: 0.5 })
   if (first && n.kind === 'imo') sfx('car', { vol: 0.5 })
@@ -365,29 +397,36 @@ function stepGame(dt) {
   // 眠り
   const learnK = G.learn ? 0.5 : 1
   if (a >= OK_LO && a <= OK_HI) G.S += 2.2 * dt
-  else if (a < OK_LO) G.S -= (OK_LO - a) / OK_LO * 4.5 * dt * learnK
-  else { G.S -= (4 + (a - OK_HI) / 0.18 * 12) * dt * learnK; G.strongT += dt }
+  else if (a < OK_LO) { const d = (OK_LO - a) / OK_LO * 4.5 * dt * learnK; G.S -= d; hurt('weak', d) }
+  else { const d = (4 + (a - OK_HI) / 0.18 * 12) * dt * learnK; G.S -= d; hurt('strong', d); G.strongT += dt }
+  for (const k in G.hurt) G.hurt[k] *= Math.pow(0.6, dt)
+  if (G.curtain > 0) G.curtain -= dt
   for (const n of G.noises) stepNoise(n, dt)
   G.noises = G.noises.filter(n => !n.dead)
   if (G.later) { for (const l of G.later) if (G.t >= l.at && !l.done) { l.done = true; l.f() } G.later = G.later.filter(l => !l.done) }
   schedule()
   G.S = Math.min(100, G.S)
   G.sumS += Math.max(0, G.S) * dt
+  if (G.t > 60) G.minLate = Math.min(G.minLate ?? 100, G.S)
   if (Math.floor(G.t) > G.hist.length - 1) G.hist.push(Math.round(Math.max(0, G.S)))
   if (G.eyeT > 0) G.eyeT -= dt
   if (G.S <= 0) { finish('cry'); return }
   // ぐずり声・寝言（見た目と小ネタ）
   if (G.S < 35 && G.t >= G.fussAt) { sfx('fuss', { vol: 0.35 }); G.fussAt = G.t + rnd(2.2, 3.2) }
   if (G.t >= G.talkAt && G.S > 60) { sayAt('baby', L(BN.SLEEPTALK[Math.floor(rng() * BN.SLEEPTALK.length)]), 'baby', 1.6); G.talkAt = G.t + rnd(28, 40) }
-  if (G.t >= G.papaTalkAt) { if (!busySrc('papa')) sayAt('papa', L(BN.PAPATALK[Math.floor(rng() * BN.PAPATALK.length)]), '', 1.8); G.papaTalkAt = G.t + rnd(40, 55) }
+  if (G.t >= G.papaTalkAt) { if (!busySrc('papa') && papa.userData.tex === 'p_nap') sayAt('papa', L(BN.PAPATALK[Math.floor(rng() * BN.PAPATALK.length)]), '', 1.8); G.papaTalkAt = G.t + rnd(40, 55) }
   if (G.learn) learnStep(dt)
   if (G.t >= DUR) finish('win')
 }
+function hurt(k, v) { G.hurt[k] = (G.hurt[k] || 0) + v }
+function causeOf() { let best = null, bv = 0; for (const k in G.hurt) if (G.hurt[k] > bv) { bv = G.hurt[k]; best = k } return best }
 function finish(kind) {
   if (G.over) return
   G.over = kind; G.endT = 0; ev('end:' + kind)
   for (const n of G.noises) if (n.st === 'warn' || n.st === 'on') n.st = 'gone'
-  if (!SIM) { Snd.loop('karaoke', null); Snd.loop('bgm', null, 0, 0.2) }
+  if (!SIM) { Snd.loop('karaoke', null); Snd.loop('vac', null); Snd.loop('bgm', null, 0, 0.2) }
+  G.cause = kind === 'cry' ? causeOf() : null
+  G.line = kind === 'cry' ? L(BN.CAUSE[G.cause] || BN.GEKIGA[Math.floor(rng() * BN.GEKIGA.length)]) : L(BN.WIN_GEKIGA)
   if (kind === 'cry') { G.S = 0; sfx('wail', { vol: 1 }); if (!SIM) { fx.shake(0.07, 0.6); cutin('c_wail') } }
   else { sfx('coo', { vol: 0.7 }); sfx('j_win', { vol: 0.6 }); sayAt('baby', L(BN.WIN[0]), 'baby', 2.4) }
   unsay('hint')
@@ -397,7 +436,7 @@ function result() {
   const mean = G.t > 0 ? G.sumS / G.t : 0
   const points = ko ? Math.round(Math.min(39, G.t / 3)) : Math.round(clamp(mean, 0, 100))
   const title = ko ? L(BN.KO_TITLES.find(r => sec >= r.sec).t) : L(BN.TITLES.find(r => points >= r.min).t)
-  return { ko, sec, points, title, mean: Math.round(mean), prevented: G.prevented, stopped: G.stopped, through: G.through, jolts: G.jolts, good: G.good, line: G.line }
+  return { ko, sec, points, title, mean: Math.round(mean), prevented: G.prevented, stopped: G.stopped, through: G.through, jolts: G.jolts, good: G.good, line: G.line, cause: G.cause, minLate: G.minLate ?? null }
 }
 
 // ============================================================ 初めての1回: 遊びの中で、その時に合わせて教える（止まって待たない）
@@ -424,6 +463,7 @@ function hint(k, src) {
 function say(slot, text, cls = '', sec) { if (SIM) return; G.texts[slot] = { text, cls, until: G.clock + (sec || Math.max(1.4, 0.9 + text.length * 0.09)), born: G.clock, at: null } }
 function sayAt(at, text, cls = '', sec) { if (SIM) return; G.texts.bubble = { text, cls, until: G.clock + (sec || Math.max(1.2, 0.9 + text.length * 0.09)), born: G.clock, at } }
 function unsay(slot) { G.texts[slot] = null }
+function flash(a = 0.8) { const f = $('flash'); f.style.transition = 'none'; f.style.opacity = String(a); requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transition = 'opacity .6s'; f.style.opacity = '0' })) }
 
 // ============================================================ 画面（DOM）
 const VIEWS = ['vTitle', 'vHow', 'vPlay', 'vResult']
@@ -529,9 +569,16 @@ const doorDraw = () => {
   const x = doorC.getContext('2d'), W = 128, H = 256
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f4f2ea'); g.addColorStop(1, '#dcd8cc'); x.fillStyle = g; x.fillRect(0, 0, W, H)
   for (let i = 0; i < 40; i++) { x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect((i * 37) % W, (i * 53) % H, 3, 3) }
-  const n = G.noises && G.noises.find(n => n.kind === 'bell' && (n.st === 'warn' || n.st === 'on'))
-  const done = G.post.door > 0 && G.postKind && G.postKind.door === 'bell'
-  if (n || done) {
+  const n = G.noises && G.noises.find(n => (n.kind === 'bell' || n.kind === 'granvisit') && (n.st === 'warn' || n.st === 'on'))
+  const done = G.post.door > 0 && G.postKind && (G.postKind.door === 'bell' || G.postKind.door === 'granvisit')
+  const visit = n ? n.kind === 'granvisit' : done && G.postKind.door === 'granvisit'
+  if (visit) {
+    // ばあばとじいじと大きな荷物（3人分の影）
+    const k = n ? (n.st === 'warn' ? ease(n.t / n.warn) : 1) : clamp(G.post.door / 2.6, 0, 1)
+    x.fillStyle = `rgba(60,40,50,${0.15 + 0.55 * k})`
+    for (const [cx, cy, r] of [[40, 96, 20], [88, 80, 22]]) { x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.beginPath(); x.arc(cx, cy - r * 0.8, r * 0.9, Math.PI, 0); x.fill(); x.fillRect(cx - r - 6, cy + r - 2, r * 2 + 12, 160) }
+    x.fillRect(16, 190, 96, 50)
+  } else if (n || done) {
     const k = n ? (n.st === 'warn' ? ease(n.t / n.warn) : 1) : clamp(G.post.door / 2.6, 0, 1)
     x.fillStyle = `rgba(40,50,80,${0.15 + 0.5 * k})`
     const cx = 64 + (done ? (1 - k) * 40 : 0)
@@ -561,14 +608,30 @@ function castLook() {
   setPaper(dog, nd ? (nd.st === 'on' ? 'd_bark' : 'd_alert') : post('dog', 'dog') ? 'd_chew' : 'd_sleep', nd ? 0.36 : 0.3)
   dog.position.x = -0.5 + (nd && nd.st === 'on' ? jit(0.02) : 0)
   // 上の子: 廊下から忍び足で来て、ラッパ
-  const nk = live('kid'), pk = post('kid', 'kid')
+  const nk = live('kid') || live('kid2') || live('kid3'), pkk = G.post && G.post.kid > 0 && G.postKind && G.postKind.kid, pk = !!pkk
   kid.visible = !!(nk || pk)
-  if (nk) { setPaper(kid, 'k_horn', 0.78); const k = nk.st === 'warn' ? ease(nk.t / nk.warn) : 1; kid.position.set(-0.72, 0, lerp(-2.6, -1.78, k)); kid.scale.y *= nk.st === 'on' ? 1 + Math.abs(Math.sin(G.clock * 18)) * 0.04 : 1 }
-  else if (pk) { setPaper(kid, 'k_shh', 0.78); const k = 1 - G.post.kid / 2.6; kid.position.set(-0.72, 0, lerp(-1.78, -2.7, ease(k))) }
+  if (nk) { setPaper(kid, { kid: 'k_horn', kid2: 'k_cym', kid3: 'k_taiko' }[nk.kind], 0.78); const k = nk.st === 'warn' ? ease(nk.t / nk.warn) : 1; kid.position.set(-0.72, 0, lerp(-2.6, -1.78, k)); kid.scale.y *= nk.st === 'on' ? 1 + Math.abs(Math.sin(G.clock * 18)) * 0.04 : 1 }
+  else if (pk) { setPaper(kid, pkk === 'kid' ? 'k_shh' : 'k_caught', 0.78); const k = 1 - G.post.kid / 2.6; kid.position.set(-0.72, 0, lerp(-1.78, -2.7, ease(k))) }
   // パパ
-  const ns = live('sneeze')
-  setPaper(papa, ns ? (ns.st === 'warn' ? 'p_sneeze' : 'p_nap') : post('papa', 'sneeze') ? 'p_pinch' : 'p_nap')
-  papa.position.y = 0.27 + (ns && ns.st === 'warn' ? Math.abs(Math.sin(G.clock * 9)) * 0.012 * (ns.t / ns.warn) : 0)
+  const ns = live('sneeze'), nv = live('vacuum'), pv = post('papa', 'vacuum')
+  if (nv || pv) {
+    // 起きて「手伝う」。掃除機をかけながら部屋を動き回る（的も一緒に動く）
+    let px = 0.5, pz = -1.22
+    if (nv && nv.st === 'on') { px = 0.12 + 0.42 * Math.sin(nv.t * 1.3); pz = -1.15 + 0.15 * Math.cos(nv.t * 0.9) }
+    if (pv) { px = papa.position.x; pz = papa.position.z }
+    setPaper(papa, nv ? (nv.st === 'warn' ? 'p_stretch' : 'p_vac') : 'p_off', 0.8)
+    papa.position.set(px + (nv && nv.st === 'on' ? jit(0.01) : 0), 0, pz)
+    SRC.papa.set(px, 0.45, pz)
+  } else {
+    setPaper(papa, ns ? (ns.st === 'warn' ? 'p_sneeze' : 'p_nap') : post('papa', 'sneeze') ? 'p_pinch' : 'p_nap', 0.44)
+    papa.position.set(0.56, 0.27 + (ns && ns.st === 'warn' ? Math.abs(Math.sin(G.clock * 9)) * 0.012 * (ns.t / ns.warn) : 0), -1.38)
+    SRC.papa.copy(PAPA_SOFA)
+  }
+  // 夕立: 窓の外が暗くなる。雷を止めたらカーテンが閉まる
+  outMat.color.set(G.mode === 'play' && G.scene >= 2 && G.scene < 3 ? '#7d8796' : G.scene >= 3 && G.mode === 'play' ? '#b9c2cc' : '#ffffff')
+  const cc = G.curtain > 0 ? 1 : 0
+  curtL.position.x = lerp(curtL.position.x, cc ? 0.35 : WIN.x0 - 0.02, 0.15); curtL.scale.x = lerp(curtL.scale.x, cc ? 2.4 : 1, 0.15)
+  curtR.position.x = lerp(curtR.position.x, cc ? 0.75 : WIN.x1 + 0.02, 0.15); curtR.scale.x = lerp(curtR.scale.x, cc ? 2.4 : 1, 0.15)
   // スマホ
   const np = live('phone') || live('gran')
   phoneDraw(np ? (np.kind === 'gran' ? 'call' : 'msg') : (post('phone', 'phone') || post('phone', 'gran')) ? 'down' : 'off')
@@ -660,17 +723,24 @@ function stepEnd() {
   if (G.over === 'cry') {
     if (t > 0.5 && !G.wail2) { G.wail2 = true; sfx('wail', { vol: 1 }) }
     if (t > 1.5 && !G.gek) {
-      G.gek = true; G.line = L(BN.GEKIGA[Math.floor(rng() * BN.GEKIGA.length)])
-      if (!SIM) {
-        Snd.duck(0.0, 3.5); $('cutin').classList.remove('on', 'hold')
-        const g = $('gekiga'); $('gekigaImg').src = 'img/g_aim.webp'; $('gekigaLine').textContent = G.line.length > 9 ? G.line.replace(/([。、.,])(?=.)/, '$1\n') : G.line; g.hidden = false
-      }
+      G.gek = true
+      if (!SIM) { Snd.duck(0.0, 3.5); $('cutin').classList.remove('on', 'hold'); showGekiga('g_aim', false) }
     }
     if (t > 1.75 && !G.cock) { G.cock = true; sfx('cock', { vol: 0.9 }) }
     if (t > 2.15 && !G.lineOn) { G.lineOn = true; if (!SIM) { $('gekigaLine').classList.add('on'); sfx('j_gekiga', { vol: 0.6 }) } }
     if (t > 4.3 && !G.blk) { G.blk = true; if (!SIM) $('gekiga').classList.add('out') }
     if (t > 5.3 && !resultShown) { resultShown = true; showResult() }
-  } else if (t > 2.8 && !resultShown) { resultShown = true; showResult() }
+  } else {
+    // ご褒美: 起きた赤ちゃんが、劇画の顔でミルク瓶をグラスのように揺らす
+    if (t > 1.8 && !G.gek) { G.gek = true; if (!SIM) { showGekiga('g_milk', true); sfx('j_gekiga', { vol: 0.5 }) } }
+    if (t > 2.1 && !G.lineOn) { G.lineOn = true; if (!SIM) $('gekigaLine').classList.add('on') }
+    if (t > 5.0 && !resultShown) { resultShown = true; showResult() }
+  }
+}
+function showGekiga(img, win) {
+  const g = $('gekiga'); $('gekigaImg').src = 'img/' + img + '.webp'
+  $('gekigaLine').textContent = G.line.length > 9 ? G.line.replace(/([。、.,])(?=.)/, '$1\n') : G.line
+  $('gekigaLine').classList.remove('on'); g.classList.remove('out'); g.classList.toggle('win', win); g.hidden = false
 }
 async function showResult() {
   const r = result()
@@ -691,6 +761,7 @@ function fitCard() {
   const s = Math.min(bw / 720, bh / 1000); c.style.width = Math.floor(720 * s) + 'px'; c.style.height = Math.floor(1000 * s) + 'px'
 }
 addEventListener('resize', () => { if (!$('vResult').hidden) fitCard() })
+if (window.ResizeObserver) new ResizeObserver(() => { if (!$('vResult').hidden) fitCard() }).observe($('cardBox'))
 function loadImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src }) }
 // 結果: 育児日記の1ページ（眠りの線・邪魔者の印・写真・ひとこと）
 async function drawCard(r) {
@@ -723,7 +794,7 @@ async function drawCard(r) {
   }
   if (r.ko) { x.fillStyle = '#b0402c'; x.font = `600 28px ${pen}`; x.textAlign = 'center'; x.textAlign = 'right'; x.fillText(lang === 'en' ? 'WAAAH' : 'ギャン泣き', gx + gw, gy - 8) }
   // 写真（マスキングテープ留め）
-  const ph = await loadImg('img/' + (r.ko ? 'g_aim' : 'b_wake') + '.webp')
+  const ph = await loadImg('img/' + (r.ko ? 'g_aim' : 'g_milk') + '.webp')
   const px0 = r.ko ? 150 : 200, py0 = 384, pw = r.ko ? 420 : 320, phh = r.ko ? 430 : 300
   x.save(); x.translate(px0 + pw / 2, py0 + phh / 2); x.rotate(r.ko ? -0.025 : 0.03)
   x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(-pw / 2 + 6, -phh / 2 + 8, pw, phh)
@@ -739,7 +810,7 @@ async function drawCard(r) {
     x.font = `800 40px ${min}`; let fs = 40; while (x.measureText(r.line).width > 600 && fs > 26) { fs -= 2; x.font = `800 ${fs}px ${min}` }
     x.fillStyle = '#111'; x.fillText(r.line, W / 2, 846)
   } else {
-    x.font = `600 34px ${pen}`; x.fillStyle = '#2b2620'; x.fillText(lang === 'en' ? 'Slept until 3 PM.' : '15時まで、ぐっすり。', W / 2, 712)
+    x.font = `600 34px ${pen}`; x.fillStyle = '#2b2620'; x.fillText(r.line || (lang === 'en' ? 'Slept until 3 PM.' : '15時まで、ぐっすり。'), W / 2, 712)
   }
   // 称号と点
   x.font = `600 ${r.ko ? 32 : 46}px ${pen}`; x.fillStyle = r.ko ? '#5a4c3a' : '#b03c5a'
@@ -756,7 +827,7 @@ function applyLang() {
   $('t1').textContent = T('title1'); $('t2').textContent = T('title2'); $('tSub').textContent = T('sub')
   $('bStart').textContent = T('start'); $('bHow').textContent = T('how'); $('bLang').textContent = T('lang')
   $('howH').textContent = T('how'); $('howWarn').textContent = L(BN.HOWTO.warn); $('bHowClose').textContent = T('close'); $('lPrivacy').textContent = T('privacy')
-  $('howCredit').textContent = lang === 'en' ? 'Sounds: Jhang Y & Oller D (CC BY 4.0), Kenney, Commons and OpenGameArt contributors (CC0/PD)' : '音: Jhang Y・Oller D（CC BY 4.0）ほか CC0 と パブリックドメインの録音'
+  $('howCredit').textContent = lang === 'en' ? 'Sounds: Jhang Y & Oller D (CC BY 4.0), Andreas Richter (CC BY 3.0), Kenney, Commons and OpenGameArt contributors (CC0/PD)' : '音: Jhang Y・Oller D（CC BY 4.0）、Andreas Richter（CC BY 3.0）ほか CC0 と パブリックドメインの録音'
   const ruleImg = ['img/b_deep.webp', 'img/d_alert.webp', 'img/b_fuss.webp']
   $('howRules').innerHTML = ''
   BN.HOWTO.rules.forEach(([a, b], i) => {
@@ -796,7 +867,6 @@ function render(dtR) {
   for (const m of PAPERS) { if (!m.visible || !m.userData.face) continue; m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z) }
   babyPivot.rotation.x = -0.62
   camera.position.copy(CAM.p); camera.lookAt(CAM.t)
-  curtL.rotation.y = Math.sin(G.clock * 0.8) * 0.06; curtR.rotation.y = -Math.sin(G.clock * 0.7 + 1) * 0.06
   look.update(); fx.applyCamera()
   renderer.render(scene, camera)
   if (G.mode === 'play') { cradleDom(); textsDom(); clockDom(); marksDom(); handDom(dtR); fingerDom() }
@@ -846,7 +916,7 @@ const BOTS = {
   // 揺らすだけ: 端に来たら押す（揺れが小さい時だけ）。邪魔者は見ない
   rock(api, st) { const s = api.state; if (s.win && s.amp < (st.hi ?? 0.55) && s.amp >= 0) api.push() },
   // 排除だけ: 気配に気づいたら止める。揺らさない
-  clear(api, st, dt) { const s = api.state; st.seen = st.seen || {}; for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') { const k = n.kind + n.at; st.seen[k] = (st.seen[k] || 0) + dt; if (st.seen[k] >= (st.react ?? 0.6)) { if (api.tapSrc(n.src) !== 'busy') st.seen[k] = -99 } } },
+  clear(api, st, dt) { const s = api.state; st.seen = st.seen || {}; for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') { const k = n.kind + n.at; st.seen[k] = (st.seen[k] || 0) + dt; if (st.seen[k] >= (st.react ?? 0.6)) { { const r = api.tapSrc(n.src); if (r !== 'busy' && r !== 'hit') st.seen[k] = -99 } } } },
   // 連打: かごも的もでたらめに叩く
   spam(api, st) { if (st.r() < 0.06) api.push(); if (st.r() < 0.02) api.tapSrc(api.SRC[Math.floor(st.r() * api.SRC.length)]) },
   // 上手い / 普通: 揺らしながら、気配を見て止める。止めるのは揺れの真ん中（押せない時間）を選ぶ
@@ -855,7 +925,7 @@ const BOTS = {
     const react = st.react ?? 0.6, lo = st.lo ?? 0.5
     let want = null
     for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') { const k = n.kind + n.at; st.seen[k] = (st.seen[k] || 0) + dt; if (st.seen[k] >= react && (!want || n.st === 'on')) want = n }
-    if (want && (!s.win || want.st === 'on' || want.t > want.warn - 0.8 || s.amp > lo) && st.cool <= 0) { if (api.tapSrc(want.src) !== 'busy') { st.seen[want.kind + want.at] = -99; st.cool = st.gap ?? 0.3 } return }
+    if (want && (!s.win || want.st === 'on' || want.t > want.warn - 0.8 || s.amp > lo) && st.cool <= 0) { const r = api.tapSrc(want.src); if (r !== 'busy') { if (r !== 'hit') st.seen[want.kind + want.at] = -99; st.cool = st.gap ?? 0.3 } return }
     if (s.win && s.amp < lo && st.cool <= 0) {
       if (st.miss && st.r() < st.miss) { st.cool = 0.5; return }   // 普通の人は時々押しそびれる
       api.push(); st.cool = st.gap ?? 0.3
@@ -864,18 +934,18 @@ const BOTS = {
   },
 }
 BOTS.slow = (api, st, dt) => { st.react = st.react ?? 2.0; BOTS.normal(api, st, dt) }
-BOTS.normal = (api, st, dt) => { st.react = st.react ?? 1.4; st.lo = st.lo ?? 0.45; st.miss = st.miss ?? 0.35; st.sloppy = st.sloppy ?? 0.25; st.gap = st.gap ?? 0.45; BOTS.good(api, st, dt) }
+BOTS.normal = (api, st, dt) => { st.react = st.react ?? 1.6; st.lo = st.lo ?? 0.45; st.miss = st.miss ?? 0.35; st.sloppy = st.sloppy ?? 0.25; st.gap = st.gap ?? 0.45; BOTS.good(api, st, dt) }
 
 // ============================================================ 起動
 applyLang()
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => applyLang())
 const PRE = ['b_deep', 'p_nap', 'd_sleep', 'cuckoo']
-const LATER = ['b_light', 'b_fuss', 'b_wail', 'b_eye', 'b_wake', 'p_sneeze', 'p_pinch', 'd_alert', 'd_bark', 'd_chew', 'k_horn', 'k_shh', 'car', 'imo', 'c_wail', 'g_aim']
+const LATER = ['k_cym', 'k_taiko', 'k_caught', 'p_vac', 'p_off', 'p_stretch', 'g_milk', 'b_light', 'b_fuss', 'b_wail', 'b_eye', 'b_wake', 'p_sneeze', 'p_pinch', 'd_alert', 'd_bark', 'd_chew', 'k_horn', 'k_shh', 'car', 'imo', 'c_wail', 'g_aim']
 let readyDone = false
 function ready() {
   if (readyDone) return; readyDone = true
   for (const n of LATER) tex(n)
-  for (const n of ['c_wail', 'g_aim']) { const i = new Image(); i.src = 'img/' + n + '.webp' }
+  for (const n of ['c_wail', 'g_aim', 'g_milk']) { const i = new Image(); i.src = 'img/' + n + '.webp' }
   window.__bootDone = true; $('boot').classList.add('gone')
   G.mode = 'title'; show('vTitle')
   window.__bnReady = true

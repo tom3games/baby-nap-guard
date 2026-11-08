@@ -24,6 +24,12 @@ for (const sc of (scenes.length ? scenes : ['title'])) {
       if (sc === 'warn') { d.step(20); d.spawn('dog'); d.spawn('bell'); d.spawn('car'); d.step(80) }
       if (sc === 'on') { d.step(20); const n = d.spawn('sneeze'); n.t = n.warn - 0.02; const m = d.spawn('kid'); m.t = m.warn; d.spawn('phone').t = 9; d.step(3) }
       if (sc === 'warn2') { d.step(20); d.spawn('karaoke').t = 2; d.spawn('clock').t = 2.2; d.spawn('gran').t = 9; d.step(10) }
+      if (sc === 'storm') { G.t = 66; d.step(20); d.spawn('thunder').t = 1; d.spawn('kid2').t = 3; d.step(10) }
+      if (sc === 'curtain') { G.t = 66; d.step(20); d.spawn('thunder'); d.step(2); bn.tapSrc('window'); d.step(40) }
+      if (sc === 'vacuum') { G.t = 95; d.step(20); const n = d.spawn('vacuum'); n.t = n.warn + 2; d.spawn('kid3').t = 1; d.step(10) }
+      if (sc === 'visit') { G.t = 103; d.step(20); d.spawn('granvisit').t = 2.5; d.spawn('gran').t = 1; d.step(10) }
+      if (sc === 'climax') { G.t = 110.9; G.fixed.combo = G.fixed.vacuum = G.fixed.visit = 0; d.step(20); d.step(60) }
+      if (sc === 'winmilk') { d.step(20); G.t = 119.9; d.step(60 * 2.4) }
       if (sc === 'fuss') { d.step(20); G.S = 25; d.step(30) }
       if (sc === 'eye') { d.step(20); G.eyeT = 1; d.step(5) }
       if (sc === 'cry') { d.step(20); G.S = 1; G.th = 0; G.v = 0; d.step(60 * 0.6) }
