@@ -1,0 +1,122 @@
+[hidden]{display:none!important}
+:root{--ink:#2b2620;--paper:#fbf6ea;--wood:#c9a77a;--pink:#d9607e;--blue:#3f6c9c}
+*{box-sizing:border-box;margin:0;padding:0}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;background:#2b2620;height:100%}
+body{height:100%;overflow:hidden;color:var(--ink);font-family:"Kiwi Maru","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+button,a{font-family:inherit;color:inherit;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button{border:0;background:none}
+#view{position:fixed;inset:0;width:100vw;height:100svh;display:block;touch-action:none}
+#flash{position:fixed;inset:0;pointer-events:none;background:#fff;opacity:0;z-index:5}
+main{position:fixed;inset:0;height:100svh;overflow:hidden;z-index:3}
+
+/* タイトル: ドアノブに掛ける「赤ちゃんが寝ています」の札 */
+#vTitle{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 2svh) 16px calc(env(safe-area-inset-bottom) + 4svh);pointer-events:none;background:linear-gradient(rgba(30,24,18,.35),rgba(30,24,18,0) 45%,rgba(30,24,18,0) 60%,rgba(30,24,18,.55))}
+#vTitle button{pointer-events:auto}
+.hanger{position:relative;display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;animation:hang 4.5s ease-in-out infinite}
+@keyframes hang{50%{transform:rotate(-1.6deg)}}
+.ribbon{display:block;width:120px;height:42px;border:4px solid #d9607e;border-bottom:0;border-radius:60px 60px 0 0;margin-bottom:-6px}
+.plate{position:relative;width:min(84vw,330px);padding:18px 18px 16px;border-radius:28px;background:#f3e2c2;box-shadow:inset 0 0 0 3px rgba(120,84,40,.25),0 10px 24px rgba(0,0,0,.4);text-align:center;
+  background-image:repeating-linear-gradient(94deg,rgba(150,110,60,.07) 0 3px,transparent 3px 11px)}
+.plate::before,.plate::after{content:"";position:absolute;top:10px;width:10px;height:10px;border-radius:50%;background:#8c6a40}
+.plate::before{left:50%;margin-left:-58px}.plate::after{left:50%;margin-left:48px}
+.plate p{font-size:clamp(14px,4vw,16px);color:#7a5a36;letter-spacing:.08em;margin-top:4px}
+.plate h1{font-weight:500;line-height:1.1;margin-top:6px}
+.plate h1 span{display:block;font-size:clamp(17px,5vw,20px);color:var(--ink)}
+.plate h1 b{display:block;font-weight:500;font-size:clamp(30px,9.2vw,40px);color:#c24a68;letter-spacing:-.02em;white-space:nowrap;margin-top:2px}
+.tsub{font-family:"Klee One",sans-serif;font-size:clamp(16px,4.6vw,19px);color:#fff;background:rgba(30,24,18,.72);padding:4px 14px;border-radius:6px}
+.tbtns{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
+.tbtns .row{display:flex;gap:10px}
+/* いちばん押してほしいボタンだけ、積み木の厚み */
+.go{font-size:22px;min-width:230px;min-height:60px;padding:0 28px;border-radius:12px;background:#f7ecd6;color:#3a2a1a;box-shadow:0 6px 0 #b8925e,0 8px 14px rgba(0,0,0,.35);position:relative;outline:2px dashed rgba(184,146,94,.7);outline-offset:-7px}
+.go:active{transform:translateY(5px);box-shadow:0 1px 0 #b8925e}
+.small{font-size:15px;min-height:42px;padding:0 16px;border-radius:21px;background:rgba(251,246,234,.92);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border:1.5px solid rgba(90,70,50,.35)}
+
+/* 遊び方: 育児ノートの1ページ */
+#vHow{display:flex;align-items:center;justify-content:center;background:rgba(20,16,12,.62);padding:16px}
+.howpaper{background:#fffdf6;width:min(400px,100%);max-height:calc(100svh - 32px);padding:16px 16px 10px 26px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 26px rgba(0,0,0,.4);
+  background-image:linear-gradient(90deg,transparent 14px,rgba(217,96,126,.4) 14px 16px,transparent 16px),repeating-linear-gradient(transparent 0 29px,rgba(63,108,156,.16) 29px 30px)}
+.howpaper h2{font-family:"Klee One",sans-serif;font-size:24px}
+#howRules{list-style:none;display:flex;flex-direction:column;gap:10px}
+#howRules li{display:flex;align-items:center;gap:10px;font-family:"Klee One",sans-serif;font-size:clamp(13px,3.7vw,15px);line-height:1.35}
+#howRules img{flex:none;width:clamp(48px,14vw,62px);height:clamp(48px,14vw,62px);object-fit:contain}
+#howRules b{display:block;font-size:clamp(17px,5vw,20px);color:#b03c5a}
+.howpaper .warn{text-wrap:balance;font-family:"Shippori Mincho B1",serif;font-weight:800;font-size:17px;line-height:1.4;text-align:center}
+.small2{font-size:19px;min-height:50px;min-width:160px;align-self:center}
+.foot{word-break:keep-all;display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:#7a6e60;text-align:center;line-height:1.35}
+.foot a{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;color:var(--blue);font-size:13px}
+
+/* 遊び中 */
+#vPlay{pointer-events:none}
+#cradleHit{position:absolute;pointer-events:auto;touch-action:none;cursor:pointer}
+.bubble{position:absolute;left:0;top:0;max-width:86vw;background:#fff;color:#1c1712;font-family:"Klee One",sans-serif;font-size:clamp(17px,5vw,21px);line-height:1.2;padding:7px 13px;border-radius:14px;
+  box-shadow:2px 4px 8px rgba(0,0,0,.3);border:2.5px solid #1c1712;width:max-content;max-width:min(86vw,330px);white-space:normal;animation:pop .18s ease-out;z-index:3}
+.bubble::after{content:"";position:absolute;left:var(--tail,50%);bottom:-13px;margin-left:-7px;border:7px solid transparent;border-top:10px solid #1c1712}
+.bubble.loud{background:#fff0d0;border-color:#9a2c18;color:#9a2c18;font-size:clamp(20px,6vw,25px);border-width:3px}
+.bubble.done{background:#eef4fb;border-color:#3f6c9c;color:#2c4f78}
+.bubble.baby{background:#fdeef2}
+html[lang=en] .bubble{white-space:normal;max-width:66vw}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.hint{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top) + 74px);text-align:center;font-family:"Klee One",sans-serif;font-size:clamp(20px,5.8vw,25px);line-height:1.25;color:#fff;text-shadow:0 2px 0 #000,0 0 10px #000,0 0 3px #000;white-space:pre-line}
+/* 時間は壁掛け時計（13:00 から 15:00） */
+#clock{position:absolute;left:10px;top:calc(env(safe-area-inset-top) + 8px);width:64px;height:64px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}
+#clock svg{width:100%;height:100%}
+/* 気配の印: 何かが起きている間だけ */
+#marks{position:absolute;inset:0;pointer-events:none}
+#marks i{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:3px solid rgba(255,214,120,.95);box-shadow:0 0 0 2px rgba(0,0,0,.3),0 0 16px rgba(255,200,90,.6);animation:mark 1s ease-in-out infinite}
+#marks i.on{border-color:#ff6a4a;box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 22px rgba(255,90,60,.8);animation-duration:.45s}
+@keyframes mark{50%{transform:scale(1.18)}}
+#hand{position:fixed;left:0;top:0;width:58px;height:58px;margin:-12px 0 0 -22px;pointer-events:none;z-index:6;opacity:0;will-change:transform}
+#hand svg{width:100%;height:100%;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
+.finger{position:fixed;width:52px;height:52px;pointer-events:none;z-index:9;margin:-8px 0 0 -18px}
+
+/* 大ゴマ（大泣き・片目） */
+#cutin{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 9svh);width:min(70vw,300px);aspect-ratio:1;margin-left:calc(min(70vw,300px) / -2);pointer-events:none;opacity:0;z-index:7;
+  background:repeating-conic-gradient(from 0deg,#fff6e0 0 6deg,#ffd0d8 6deg 12deg);clip-path:polygon(50% 0,61% 12%,78% 4%,80% 22%,98% 24%,88% 40%,100% 54%,84% 62%,92% 80%,72% 80%,64% 98%,50% 86%,36% 98%,28% 80%,8% 80%,16% 62%,0 54%,12% 40%,2% 24%,20% 22%,22% 4%,39% 12%)}
+#cutin img{position:absolute;left:10%;top:8%;width:80%;height:84%;object-fit:contain}
+#cutin.on{animation:cutin 1.3s ease-out forwards}
+#cutin.hold{animation:cutinHold .25s ease-out forwards}
+@keyframes cutin{0%{opacity:0;transform:scale(.3) rotate(-12deg)}12%{opacity:1;transform:scale(1.12) rotate(3deg)}22%{transform:scale(1) rotate(-1deg)}80%{opacity:1;transform:scale(1.03)}100%{opacity:0;transform:scale(1.15)}}
+@keyframes cutinHold{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+
+/* 泣かせきった後: 劇画の大ゴマ */
+#gekiga{position:fixed;inset:0;z-index:12;background:#e9e2d2;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#gekiga .tone{position:absolute;inset:-20%;background:repeating-conic-gradient(from 0deg at 50% 46%,#111 0 1.2deg,transparent 1.2deg 4deg);opacity:.85;animation:lines 3s linear infinite}
+@keyframes lines{to{transform:rotate(4deg)}}
+#gekiga img{position:relative;height:min(64svh,118vw);max-width:96vw;object-fit:contain;filter:contrast(1.08);animation:aim 2.2s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes aim{from{transform:scale(.82) translateY(4%)}to{transform:scale(1.04)}}
+#gekiga p{white-space:pre-line;position:relative;margin-top:2svh;padding:8px 16px;background:#fff;border:3px solid #111;font-family:"Shippori Mincho B1","Hiragino Mincho ProN",serif;font-weight:800;font-size:clamp(22px,6.8vw,34px);letter-spacing:.04em;line-height:1.25;color:#111;text-align:center;max-width:92vw;opacity:0;transition:opacity .25s}
+#gekiga p.on{opacity:1}
+#gekiga .black{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .9s}
+#gekiga.out .black{opacity:1}
+@media (min-aspect-ratio:3/2){#gekiga{flex-direction:row;gap:3vw}#gekiga img{height:86svh}#gekiga p{margin-top:0;max-width:40vw;font-size:clamp(28px,4.2vw,52px)}}
+
+#bMute{position:fixed;z-index:6;right:12px;top:calc(env(safe-area-inset-top) + 12px);width:42px;height:42px;border-radius:21px;background:rgba(20,16,12,.55);color:#fff;display:flex;align-items:center;justify-content:center}
+#bMute svg{width:24px;height:24px}
+#bMute.off #mWave{display:none}#bMute:not(.off) #mX{display:none}
+
+/* 結果: 育児日記のページ */
+#vResult{background:#3a3128;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 6px);gap:8px}
+#card{flex:none;display:block;transform:rotate(-.6deg);box-shadow:0 8px 22px rgba(0,0,0,.5)}
+.cardbox{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.rbtns{display:flex;gap:12px;flex:none}
+.rrow{display:flex;flex:none}
+#vResult .go{min-height:52px;font-size:20px}
+.more{flex:none;font-size:12px;color:#d9c9a8;text-decoration:none;min-height:30px;display:inline-flex;align-items:center}
+
+/* 読み込み: 揺れるかご */
+#boot{position:fixed;inset:0;z-index:20;background:#2b2620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .4s;color:#f2e6cf}
+#boot.gone{opacity:0;pointer-events:none}
+#boot svg{width:160px}
+#boot .swing{transform-origin:100px 18px;animation:bswing 1.8s ease-in-out infinite}
+@keyframes bswing{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+#boot .nose{transform-origin:95px 96px;animation:nose 1.8s ease-in-out infinite}
+@keyframes nose{50%{transform:scale(1.7)}}
+#boot p{font-family:"Klee One",sans-serif;font-size:18px}
+.boot-bar{width:160px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
+.boot-bar i{display:block;height:100%;background:#e9a5b6;transform:scaleX(0);transform-origin:0 50%;transition:transform .25s}
+#bootErr{position:fixed;left:8px;right:8px;bottom:8px;z-index:30;background:#fff;color:#b00;font:12px/1.4 monospace;white-space:pre-wrap;padding:10px;border-radius:8px}
+@media (max-height:700px){
+  .plate{padding:12px 16px 12px}.ribbon{height:30px}.go{min-height:52px}
+  #howRules img{width:44px;height:44px}.howpaper{gap:6px;padding:12px 14px 8px 24px}
+  #howRules li{font-size:12.5px}
+}

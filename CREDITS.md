@@ -1,0 +1,40 @@
+- snd/creak1.mp3: 50 RPG sound effects / Kenney / CC0
+- snd/creak2.mp3: 50 RPG sound effects / Kenney / CC0
+- snd/creak3.mp3: 50 RPG sound effects / Kenney / CC0
+- snd/jolt.mp3: 75 CC0 breaking / falling / hit sfx / rubberduck / CC0
+- snd/wail1.mp3: File:Crying_newborn_baby.ogg (切り出し) / the_yura / CC0
+- snd/wail2.mp3: File:Crying_newborn_baby.ogg (切り出し) / the_yura / CC0
+- snd/wail3.mp3: File:Baby_long_wanting_cry.ogg (切り出し) / natalie / Public domain
+- snd/fuss1.mp3: File:Baby_long_wanting_cry.ogg (切り出し) / natalie / Public domain
+- snd/fuss2.mp3: File:Baby_long_wanting_cry.ogg (切り出し) / natalie / Public domain
+- snd/fuss3.mp3: File:Baby_long_wanting_cry.ogg (切り出し) / natalie / Public domain
+- snd/bell.mp3: File:Doorbell-cheap-dingdong.ogg / ? / Public domain
+- snd/bark1.mp3: Dog barking mono / HaelDB / CC0,OGA-BY 3.0
+- snd/bark2.mp3: Dog barking mono / HaelDB / CC0,OGA-BY 3.0
+- snd/bark3.mp3: Dog barking mono / HaelDB / CC0,OGA-BY 3.0
+- snd/horn1.mp3: File:Luftrüssel.ogg / Flo Sorg / Public domain
+- snd/horn2.mp3: File:Derp.ogg (切り出し) / Derpzd / Public domain
+- snd/sneeze.mp3: File:Sneeze.ogg / Neo139 / CC0
+- snd/buzz1.mp3: File:Mobile_phone_interference.ogg (切り出し) / Ezwa / Public domain
+- snd/buzz2.mp3: File:Mobile_phone_interference.ogg (切り出し) / Ezwa / Public domain
+- snd/sms.mp3: File:Segnale_audio_di_arrivo_SMS.ogg (先頭) / Pracchia-78 / Public domain
+- snd/ring.mp3: File:JA_Ringback_tone_by_au.ogg (先頭7秒) / KDDI Corporation / Public domain
+- snd/knock.mp3: File:Knock on door.wav / Asud12 / CC0
+- snd/car.mp3: File:Car on cobblestone.ogg / mastermesh / Public domain
+- snd/whistle.mp3: File:218318 splicesound referee-whistle-blow-gymnasium.wav / SpliceSound / CC0
+- snd/clockbell.mp3: 100 CC0 SFX / rubberduck / CC0
+- snd/window.mp3: 100 CC0 SFX / rubberduck / CC0
+- snd/paper.mp3: 100 CC0 SFX / rubberduck / CC0
+- snd/cock.mp3: Gun reload, lock or click sound / pauliuw / CC0
+- snd/chew.mp3: File:Kcg-kang (gum).ogg / Danjuma Anthony / CC0
+- snd/squeak.mp3: Squeak toy sounds / bart / CC0
+- snd/coo.mp3: File:Emergence-of-Functional-Flexibility-in-Infant-Vocalizations-of-the-First-3-Months-Audio1.oga / Jhang Y, Oller D / CC BY 4.0
+- snd/j_win.mp3: 85 Short music jingles / Kenney / CC0
+- snd/j_gekiga.mp3: 85 Short music jingles / Kenney / CC0
+- snd/j_rare.mp3: 85 Short music jingles / Kenney / CC0
+- snd/click.mp3: Interface Sounds / Kenney / CC0
+- snd/pop.mp3: 3 Pop Sounds / wubitog / CC0
+- snd/bgm_box.mp3: File:Lullaby wound up clock.ogg / stephan / Public domain（先頭60秒）
+- snd/karaoke.mp3: CVP701Jam (Lowpass) / omfgdude (OpenGameArt) / CC0（24秒に切った。隣の部屋のカラオケとして）
+- snd/amb_birds.mp3: File:Birds singing in garden.ogg / ezwa / Public domain（20秒に切った）
+- snd/amb_tick.mp3: File:Clock ticking.ogg / natalie / Public domain（16秒に切った）
