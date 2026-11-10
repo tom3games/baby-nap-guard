@@ -17,7 +17,7 @@ window.BN = {
   },
   HOWTO: {
     rules: [
-      [['端まで来たら、押す', 'Push at the end of the swing'], ['揺りかごが端で止まった瞬間にタップ。途中で押すとガタッ。押しすぎも起きる', 'Tap the cradle the moment it stops at one end. Mid-swing taps jolt. Too much swinging wakes the baby too']],
+      [['右の端で光ったら押す', 'Push when it glows on the right'], ['揺りかごが右の端で黄色く光った瞬間にタップ。途中で押すとガタッ。押しすぎも起きる', 'Tap the cradle the moment it glows yellow at the right end. Mid-swing taps jolt. Too much swinging wakes the baby too']],
       [['鳴る前に、止める', 'Stop noises before they start'], ['影・耳・ほっぺ・光。気配が出た所をタップ。連打が要る物もある。手は1本なので、揺らす手が一瞬止まる', 'A shadow, perked ears, puffed cheeks, a lit screen. Tap it, some need several taps. You only have one hand, so the cradle waits']],
       [['鼻ちょうちんが命', 'Watch the snot bubble'], ['ふくらんでいれば熟睡。割れたら起きかけ。泣ききったら、終わり', 'Big bubble, deep sleep. If it pops, the baby is stirring. If the baby cries it out, it is over']],
     ],
@@ -25,7 +25,7 @@ window.BN = {
   },
   // 初めての1回、遊びの中で出す一文（止まって待たない）
   HINT: {
-    push: ['端に来たら、揺りかごをタップ', 'Tap the cradle at the end of the swing'],
+    push: ['右の端で光ったら、揺りかごをタップ', 'Tap the cradle when it glows on the right'],
     jolt: ['途中で押すとガタッ。端で押す', 'Not mid-swing. Push at the end'],
     noise: ['気配の所をタップして止める', 'Tap the noise maker to stop it'],
     strong: ['揺らしすぎ。少し待つ', 'Too much. Let it settle'],

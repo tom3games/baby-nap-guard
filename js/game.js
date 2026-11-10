@@ -544,7 +544,7 @@ function fingerDom() {
   if (!f) { f = document.createElement('div'); f.id = 'finger'; f.className = 'finger'; f.innerHTML = '<svg viewBox="0 0 44 44"><path d="M16 4c2 0 4 2 4 4v12l2-1c2-1 4 0 5 1l6 3c2 1 3 3 3 5l-2 10H14L8 28c-1-2 0-4 2-4s3 1 4 2V8c0-2 0-4 2-4z" fill="#fff" stroke="#222" stroke-width="2.5"/></svg>'; document.body.append(f) }
   let p
   if (l === 'noise' && G.learn.src) p = srcXY(G.learn.src)
-  else { if (!inWindow()) { f.hidden = true; return } p = toScreen(new THREE.Vector3(G.th > 0 ? 0.25 : -0.25, 0.42, PIVOT.z + 0.1)) }
+  else { if (!inWindow() || (amp() >= 0.15 && G.th <= 0)) { f.hidden = true; return } p = toScreen(new THREE.Vector3(0.25, 0.42, PIVOT.z + 0.1)) }
   f.hidden = false
   const k = (G.clock % 0.7) / 0.7
   f.style.left = p.x + 'px'; f.style.top = (p.y + (k < 0.5 ? k * 14 : (1 - k) * 14)) + 'px'
@@ -691,8 +691,8 @@ function babyLook(dt) {
 }
 function swingLook() {
   swing.rotation.z = G.th * MAXANG
-  // 押せる瞬間だけ縁がほんのり光る（実際に端にいる間だけ）
-  const on = G.mode === 'play' && !G.over && amp() >= 0.15 && inWindow()
+  // 押せる瞬間だけ縁がほんのり光る。右の端だけ（2026-11-10 本人「両方光るとわかりづらい」）。右だけ押すと振れ幅がちょうど良い所に落ち着く
+  const on = G.mode === 'play' && !G.over && amp() >= 0.15 && inWindow() && G.th > 0
   rimMat.emissiveIntensity = lerp(rimMat.emissiveIntensity, on ? 0.55 : 0, 0.35)
 }
 
