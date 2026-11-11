@@ -10,7 +10,7 @@ button{border:0;background:none}
 main{position:fixed;inset:0;height:100svh;overflow:hidden;z-index:3}
 
 /* タイトル: ドアノブに掛ける「赤ちゃんが寝ています」の札 */
-#vTitle{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 2svh) 16px calc(env(safe-area-inset-bottom) + 4svh);pointer-events:none;background:linear-gradient(rgba(30,24,18,.35),rgba(30,24,18,0) 45%,rgba(30,24,18,0) 60%,rgba(30,24,18,.55))}
+#vTitle{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 2svh) 16px calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 4svh);pointer-events:none;background:linear-gradient(rgba(30,24,18,.35),rgba(30,24,18,0) 45%,rgba(30,24,18,0) 60%,rgba(30,24,18,.55))}
 #vTitle button{pointer-events:auto}
 .hanger{position:relative;display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;animation:hang 4.5s ease-in-out infinite}
 @keyframes hang{50%{transform:rotate(-1.6deg)}}
@@ -96,7 +96,7 @@ html[lang=en] .bubble{white-space:normal;max-width:66vw}
 #bMute.off #mWave{display:none}#bMute:not(.off) #mX{display:none}
 
 /* 結果: 育児日記のページ */
-#vResult{background:#3a3128;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 6px);gap:8px}
+#vResult{background:#3a3128;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 6px);gap:8px}
 #card{flex:none;display:block;transform:rotate(-.6deg);box-shadow:0 8px 22px rgba(0,0,0,.5)}
 .cardbox{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
 .rbtns{display:flex;gap:12px;flex:none}
