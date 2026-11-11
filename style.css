@@ -121,3 +121,17 @@ html[lang=en] .bubble{white-space:normal;max-width:66vw}
   #howRules img{width:44px;height:44px}.howpaper{gap:6px;padding:12px 14px 8px 24px}
   #howRules li{font-size:12.5px}
 }
+/* v3 蚊。絵は56px、判定はもっと大きい円（game.js mqHitR）。顔の近くでは輪が赤く速く脈打つ＝今叩くと起きる */
+#mosq{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:3}
+#mosq svg{position:absolute;width:56px;height:46px;left:-28px;top:-23px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+#mosq[data-dir=r] svg{transform:scaleX(-1)}
+#mosq .mwing ellipse{fill:rgba(235,245,255,.7);stroke:rgba(60,70,90,.55);stroke-width:1}
+#mosq .mwing{transform-origin:23px 14px;animation:mwing .06s linear infinite alternate}
+#mosq.land .mwing{animation:none;transform:scaleY(.5)}
+#mosq .mring{position:absolute;width:66px;height:66px;left:-33px;top:-33px;border-radius:50%;border:2.5px dashed rgba(255,255,255,.9);box-shadow:0 0 0 1.5px rgba(0,0,0,.3)}
+#mosq.near .mring{border:3px solid #ff5a3c;box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 18px rgba(255,80,50,.85);animation:mark .4s ease-in-out infinite}
+#mosq.dead svg{transform:rotate(160deg) scale(.85);opacity:.85}
+#mosq.dead .mwing{animation:none}
+#mosq.dead .mring{display:none}
+@keyframes mwing{from{transform:scaleY(1)}to{transform:scaleY(.35)}}
+.howpaper .hmosq{font-family:"Klee One",sans-serif;font-size:clamp(12.5px,3.5vw,14px);line-height:1.35;color:#5a4c3a;text-wrap:balance;word-break:keep-all;padding-left:4px;border-left:3px solid #ff8a6a}

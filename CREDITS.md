@@ -50,3 +50,6 @@
 - snd/thunder.mp3: 100 CC0 SFX #2 / rubberduck / CC0
 - snd/vacuum.mp3: 100 CC0 SFX #2 / rubberduck / CC0
 - snd/amb_rain.mp3: File:Rain_and_thunder.ogg (雨だけの10秒) / Caesar / Public domain
+- snd/smack1.mp3: File:Smack (Gravity Sound).mp3 / Gravity Sound / CC BY 4.0
+- snd/smack2.mp3: File:Smack 2 (Gravity Sound).mp3 / Gravity Sound / CC BY 4.0
+- snd/mosq.mp3: File:Mosquito attack.ogg / Yesthatbruce / CC0（Wikimedia Commons。6秒のループに切り出し。夏の夜の蚊と同じ切り出し）

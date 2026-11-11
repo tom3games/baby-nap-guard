@@ -6,10 +6,11 @@ import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 const ROOT = import.meta.dirname
 mkdirSync(ROOT + '/shots', { recursive: true })
-const PORT = 5411
+const PORT = 0   // 空いている番号をサーバーに選ばせる（ほかのゲームの残ったサーバーと番号がぶつかると古い物を開く）
 const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT) } })
-await new Promise(r => setTimeout(r, 400))
-const URL0 = `http://localhost:${PORT}/`
+// サーバーが立ったのを確かめる（前に落ちた回のサーバーが同じ番号に残っていると、古いフォルダを開いたまま気づけない。2026-11-11 sim で踏んだ）
+const BASE = await new Promise((ok, ng) => { server.stdout.once('data', d => ok(String(d).trim())); server.once('exit', c => ng(new Error('server.mjs が起動できない'))) })
+const URL0 = BASE + '/'
 let pass = 0, fail = 0
 const results = []
 async function t(name, fn) {
@@ -144,6 +145,52 @@ await t('起きかけ（ぐずる）間は普通の赤ちゃんの顔で、渋�
   const r = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.eyeT = 0; G.th = 0.5; G.v = 0; const out = {}; for (const s of [90, 50, 20, 3]) { G.S = s; d.render(); out[s] = bn.state.face } return out })
   expect(r[90] === 'b_deep' && r[50] === 'b_light' && r[20] === 'b_fuss' && r[3] === 'b_fuss' && !Object.values(r).some(f => /^g_/.test(f)), JSON.stringify(r)); return r
 })
+// ---- 蚊（v3 2026-11-11）: 出てくる・クリックで倒せる・放っておくと刺す・顔の近くで叩くと起きかける
+const mqSetup = (q, o = {}) => q.evaluate(o => { const d = bn.dbg, G = d.G; d.startPlay(); d.pause(true); G.t = 40; G.next = 999; G.fixed = {}; G.noises = []; G.post = {}; G.busy = 0; G.S = o.S ?? 80; G.th = 0.5; G.v = 0; G.eyeT = 0; G.mqNext = 999; G.mq = null; d.mqSpawn(); if (o.t != null) G.mq.t = o.t; if (o.land) { G.mq.st = 'land'; G.mq.t = 0 } d.step(1); return { ...bn.state.mosq, R: bn.mqHitR(), ring: document.getElementById('mosq').className, vis: !document.getElementById('mosq').hidden, svgW: document.querySelector('#mosq svg').getBoundingClientRect().width, loop: !!(Snd.loops.mosq && /mosq/.test(Snd.loops.mosq.url)) } }, o)
+await t('蚊: 13:30 より前と初めての1回の間は来ない。1回の遊びで2〜4匹、14:26 まで', async () => {
+  const r = await p.evaluate(() => { const out = []; for (let s = 1; s <= 8; s++) out.push(bn.sim('good', s * 17, { events: true }).events.filter(e => e[1] === 'spawn:mosq').map(e => e[0])); return out })
+  const learn = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.startPlay(true); d.pause(true); d.tick(60 * 41); const o = { learn: !!G.learn, mq: !!G.mq }; return o })
+  expect(r.every(a => a.length >= 2 && a.length <= 4 && a[0] >= 36 && a.every(t => t <= 87)) && learn.learn && !learn.mq, JSON.stringify({ r, learn })); return { count: r.map(a => a.length), first: r.map(a => a[0]) }
+})
+await t('蚊: 出てくると絵と輪が出て、羽音が鳴り始める。判定は見た目より大きい', async () => {
+  const m = await mqSetup(p, { t: 0.5 })
+  expect(m.vis && m.st === 'fly' && !m.near && m.loop && m.R > m.svgW / 2 + 15 && m.svgW >= 50 && !/near/.test(m.ring), JSON.stringify(m)); return { R: Math.round(m.R), svgW: Math.round(m.svgW) }
+})
+await t('蚊: 顔から離れているうちにクリック → 倒せて（パチン）、眠りは減らない。中心から少しずれても当たる', async () => {
+  const out = []
+  for (const dx of [0, 32]) {
+    const m = await mqSetup(p, { t: 0.5 }); const a = await st(p), sm0 = await p.evaluate(() => Snd.played.smack || 0)
+    await tapXY(p, { x: m.x + (m.x > 200 ? -dx : dx), y: m.y })
+    const b = await st(p), sm = await p.evaluate(() => Snd.played.smack || 0)
+    out.push({ dx, kill: b.mq.kills - a.mq.kills, dS: Math.round(b.S - a.S), st: b.mosq && b.mosq.st, smack: sm - sm0, good: b.good - a.good, jolt: b.jolts - a.jolts })
+  }
+  expect(out.every(o => o.kill === 1 && o.dS === 0 && o.st === 'dead' && o.smack === 1 && !o.good && !o.jolt), JSON.stringify(out)); return out
+})
+await t('蚊: 顔の近く（輪が赤い）でクリック → 倒せるが、パチンの音で起きかける（眠り -14・劇画の片目）', async () => {
+  const m = await mqSetup(p, { land: true }); const a = await st(p)
+  const inCradle = await p.evaluate(m => { const c = document.getElementById('cradleHit').getBoundingClientRect(); return m.x > c.left && m.x < c.right && m.y > c.top && m.y < c.bottom }, m)
+  await tapXY(p, m)
+  const b = await st(p)
+  expect(m.near && /near/.test(m.ring) && b.mq.kills === a.mq.kills + 1 && b.mq.near === a.mq.near + 1 && Math.round(a.S - b.S) === 14 && b.eyeT > 0 && b.good === a.good, JSON.stringify({ m, a: a.S, b: b.S, eye: b.eyeT })); return { dS: Math.round(b.S - a.S), inCradle, pushedCradle: b.good - a.good }
+})
+await t('蚊: 放っておくと頬に止まって刺す → 眠り -22・ぐずり顔、蚊は去る', async () => {
+  await mqSetup(p, { t: 0 })
+  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G; let before = null, after = null, land = null; for (let i = 0; i < 60 * 12; i++) { G.th = 0.55; G.v = 0; const s0 = G.S, b0 = G.mqBites; d.tick(1); if (G.mq && G.mq.st === 'land' && land == null) land = Math.round(G.t * 10) / 10; if (G.mqBites > b0) { before = s0; after = G.S; break } } d.render(); return { land, dS: before == null ? null : Math.round(after - before), face: bn.state.face, st: G.mq && G.mq.st, bites: G.mqBites } })
+  expect(r.land && r.dS <= -21 && r.face === 'b_fuss' && r.st === 'leave', JSON.stringify(r)); return r
+})
+await t('蚊: すぐ横の空振りは、かごを押したことにならない（ガタッにならない）', async () => {
+  const m = await mqSetup(p, { land: true }); const a = await st(p)
+  await tapXY(p, { x: m.x, y: m.y + m.R * 1.3 })
+  const b = await st(p)
+  expect(b.mosq.st === 'land' && b.jolts === a.jolts && b.good === a.good && b.busy > 0, JSON.stringify({ a: [a.jolts, a.good], b: [b.jolts, b.good, b.mosq.st] }))
+})
+await t('蚊で起こすと、蚊の一言（刺された・顔の横で叩いた）', async () => {
+  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G, out = {}
+    d.startPlay(); d.pause(true); G.next = 999; G.fixed = {}; G.noises = []; G.hurt = {}; G.S = 10; G.mqNext = 999; G.mq = null; d.mqSpawn(); G.mq.st = 'land'; G.mq.t = 0; for (let i = 0; i < 120 && !G.over; i++) { G.th = 0.55; G.v = 0; d.tick(1) } out.bite = [G.over, G.cause, G.line]
+    d.startPlay(); d.pause(true); G.next = 999; G.fixed = {}; G.noises = []; G.hurt = {}; G.S = 8; G.busy = 0; G.mqNext = 999; G.mq = null; d.mqSpawn(); G.mq.st = 'land'; G.mq.t = 0; d.step(1); const q = bn.state.mosq; bn.tapAt(q.x, q.y); out.swat = [G.over, G.cause, G.line]
+    d.startPlay(); d.pause(true); return out })
+  expect(r.bite[1] === 'mosq' && /蚊/.test(r.bite[2]) && r.swat[1] === 'swat' && /拍手/.test(r.swat[2]), JSON.stringify(r)); return { bite: r.bite[2], swat: r.swat[2] }
+})
 // ---- 指示と違う操作でも固まらない（初めての1回で）
 await p.close()
 for (const [name, ops] of [
@@ -177,7 +224,7 @@ for (const [name, ops] of [
     expect(r.img === 'g_aim.webp' && r.line.length > 3 && r.on && r.cock === 1 && r.wail >= 1, JSON.stringify(r)); return r
   })
   await t('暗転のあと結果（育児日記）が出て、何もしないは最低の称号・点', async () => {
-    await q.waitForFunction(() => !document.getElementById('vResult').hidden, null, { timeout: 8000 }); await q.waitForTimeout(500)
+    await q.waitForFunction(() => !document.getElementById('vResult').hidden && window.__lastResult, null, { timeout: 15000 }); await q.waitForTimeout(300)
     const r = await q.evaluate(() => window.__lastResult)
     const v = await variance(q, '#card')
     await q.screenshot({ path: ROOT + '/shots/v-result-ko.png' })
@@ -206,12 +253,12 @@ for (const [name, ops] of [
   const q = await open(browser, {}, '?notut&seed=4')
   await t('15時まで寝かせきると、起きてにっこり → 結果に眠りの深さと称号', async () => {
     await q.click('#bStart')
-    await q.evaluate(() => { bn.dbg.G.bot = (api, st, dt) => { const s = api.state; for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') api.tapSrc(n.src); if (s.win && s.amp < 0.5) api.push() }; bn.dbg.speed(12) })
-    await q.waitForFunction(() => !document.getElementById('vResult').hidden, null, { timeout: 40000 }); await q.waitForTimeout(500)
+    await q.evaluate(() => { bn.dbg.G.bot = (api, st, dt) => { const s = api.state; if (s.mosq && s.mosq.st === 'fly' && !s.mosq.near) api.tapAt(s.mosq.x, s.mosq.y); for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') api.tapSrc(n.src); if (s.win && s.amp < 0.5) api.push() }; bn.dbg.speed(12) })
+    await q.waitForFunction(() => !document.getElementById('vResult').hidden && window.__lastResult, null, { timeout: 40000 }); await q.waitForTimeout(300)
     const r = await q.evaluate(() => window.__lastResult)
     await q.screenshot({ path: ROOT + '/shots/v-result-win.png' })
     const milk = await q.evaluate(() => document.getElementById('gekigaImg').src.split('/').pop())
-    expect(!r.ko && r.points >= 70 && r.title && milk === 'g_milk.webp' && /悪くない/.test(r.line), JSON.stringify({ r, milk })); return { points: r.points, title: r.title, reward: milk }
+    expect(!r.ko && r.points >= 70 && r.title && milk === 'g_milk.webp' && /悪くない/.test(r.line) && r.mq && r.mq.seen >= 2 && r.mq.kills === r.mq.seen, JSON.stringify({ r, milk })); return { points: r.points, title: r.title, reward: milk, mq: r.mq }
   })
   await q.close()
 }
@@ -220,7 +267,7 @@ for (const [name, ops] of [
   const q = await open(browser)
   await t('同じ種・同じ操作なら同じ結果', async () => { const r = await q.evaluate(() => [bn.sim('normal', 42), bn.sim('normal', 42)].map(x => x.points + ':' + x.sec + ':' + x.prevented)); expect(r[0] === r[1], r.join(' ')); return r[0] })
   await t('bot の分布: 上手い・普通は生き残り、揺らすだけ・排除だけ・連打・何もしないは泣かせる', async () => {
-    const r = await q.evaluate(() => { const o = {}; for (const b of ['good', 'normal', 'rock', 'clear', 'spam', 'idle']) { const rs = []; for (let s = 1; s <= 8; s++) rs.push(bn.sim(b, s * 31)); o[b] = { alive: rs.filter(x => !x.ko).length, avg: Math.round(rs.reduce((a, x) => a + x.points, 0) / 8) } } return o })
+    const r = await q.evaluate(() => { const o = {}; for (const b of ['good', 'normal', 'rock', 'clear', 'spam', 'idle']) { const rs = []; for (let s = 1; s <= 8; s++) rs.push(bn.sim(b, s * 31)); o[b] = { alive: rs.filter(x => !x.ko).length, avg: Math.round(rs.reduce((a, x) => a + x.points, 0) / 8), mosq: rs.reduce((a, x) => a + x.mq.seen, 0), bites: rs.reduce((a, x) => a + x.mq.bites, 0) } } return o })
     expect(r.good.alive === 8 && r.normal.alive >= 7 && ['rock', 'clear', 'spam', 'idle'].every(b => r[b].alive === 0 && r[b].avg < 20), JSON.stringify(r)); return r
   })
   await t('遊び中に同時に出る文字は2つまで（教える一文＋吹き出し）', async () => {
@@ -250,6 +297,10 @@ for (const [w, h, name] of SIZES) {
   await q.click('#bStart'); await q.evaluate(() => { const d = bn.dbg; d.pause(true); d.spawn('dog'); d.spawn('car'); d.step(90) }); views.play = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-play.png` })
   const inside = await q.evaluate(() => { const W = innerWidth, H = innerHeight; return bn.SRC.filter(s => { const p = bn.srcXY(s); return !(p.x > 8 && p.x < W - 8 && p.y > 60 && p.y < H - 20) }) })
   await t(`${name}: 音の出どころが全部画面の中にある`, async () => { expect(!inside.length, inside.join(',')) })
+  const fly = await q.evaluate(() => { const d = bn.dbg, G = d.G, W = innerWidth, H = innerHeight, out = []; for (let k = 0; k < 6; k++) { G.noises = []; G.mqNext = 999; G.mq = null; G.S = 80; G.over = null; d.mqSpawn(); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (let i = 0; i < 60 * 10 && G.mq && G.mq.st !== 'leave'; i++) { G.th = 0.5 * Math.cos(i / 60 * 3.7); d.tick(1); const s = bn.state.mosq; if (!s) break; x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x); y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y) } out.push([x0, x1, y0, y1].map(Math.round)) } G.mq = null; d.mqSpawn(); G.mq.t = 2.5; d.step(1); return { W, H, out } })
+  await q.screenshot({ path: `${ROOT}/shots/fit-${name}-mosq.png` })
+  await t(`${name}: 蚊は飛んでいる間ずっと画面の中（指で届く）`, async () => { const bad = fly.out.filter(([x0, x1, y0, y1]) => x0 < 22 || x1 > fly.W - 22 || y0 < 90 || y1 > fly.H - 30); expect(!bad.length, JSON.stringify(fly)); return fly.out.length })
+  await q.evaluate(() => { bn.dbg.G.mq = null })
   const ov1 = await overflow(q)
   await q.evaluate(() => { const d = bn.dbg; d.G.S = 0.5; d.pause(false); d.speed(1) })
   await q.waitForFunction(() => !document.getElementById('gekiga').hidden && document.getElementById('gekigaLine').classList.contains('on'), null, { timeout: 8000 })
@@ -275,6 +326,11 @@ await t('WebKit: タップで始めて、かごをタップで押せる・物を
   await tapXY(wp, xy, true)
   const c = await st(wp)
   expect(c.good === a.good + 1 && c.prevented === a.prevented + 1, JSON.stringify({ a: [a.good, a.prevented], c: [c.good, c.prevented] }))
+})
+await t('WebKit: 蚊をタップで倒せる', async () => {
+  const m = await mqSetup(wp, { t: 0.5 }); const a = await st(wp)
+  await tapXY(wp, m, true); const b = await st(wp)
+  expect(b.mq.kills === a.mq.kills + 1, JSON.stringify({ a: a.mq, b: b.mq }))
 })
 await t('WebKit: 実際には無音', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), st: Snd.ctx && Snd.ctx.state })); expect(r.ok && r.st !== 'running', JSON.stringify(r)); return r })
 await t('WebKit: 泣かせきって結果まで（エラーなし）', async () => {

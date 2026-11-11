@@ -26,6 +26,7 @@ Snd.def({
   buzz: [S_('buzz1'), S_('buzz2')], sms: S_('sms'), ring: S_('ring'), knock: S_('knock'), car: S_('car'), whistle: S_('whistle'),
   clockbell: S_('clockbell'), window: S_('window'), paper: S_('paper'), cock: S_('cock'), chew: S_('chew'), squeak: S_('squeak'), pop: S_('pop'),
   cymbal: S_('cymbal'), taiko: [S_('taiko'), S_('taiko2')], thunder: S_('thunder'),
+  smack: [S_('smack1'), S_('smack2')], mosqbuzz: S_('mosq'),
   j_win: S_('j_win'), j_gekiga: S_('j_gekiga'), j_rare: S_('j_rare'), click: S_('click'),
 })
 let muted = store.get('bn_mute') === '1'
@@ -229,9 +230,15 @@ const SC = [
   { from: 92, to: 108, pool: ['kid3', 'gran', 'car', 'dog', 'bell', 'vacuum'], gap: [3.4, 4.6] },
 ]
 const POOL = SC[0].pool
+// v3 蚊（2026-11-11 本人「蚊が飛んでくることも。タップして倒す感じ」）。13:30 の場面から、15〜20秒に1匹だけ。
+// ふらふら回りながら赤ちゃんの顔へ寄り、T 秒で頬に止まり、LAND 秒で刺す（眠り -BITE）。タップで倒せるが、
+// 顔の近く（NEAR m 以内。輪が赤い）で叩くとパチンの音で起きかける（眠り -SWAT_NEAR・劇画の片目）。離れた所で叩けば無傷
+const MQ = { T: 8, LAND: 0.9, BITE: 22, NEAR: 0.24, SWAT_NEAR: 14, first: [37, 43], gap: [17, 23], last: 86 }
 const G = { mode: 'boot', t: 0, clock: 0, texts: { bubble: null, hint: null }, paused: false, speed: 1, playNo: 0, post: {}, postKind: {}, noises: [], S: 80, th: 0, v: 0, hist: [], log: [] }
 let rng = mulberry(1)
 const rnd = (a, b) => a + (b - a) * rng()
+let mqR = mulberry(2)
+const mrnd = (a, b) => a + (b - a) * mqR()
 
 function newGame(seed, learn = false) {
   G.seed = seed; rng = mulberry(seed)
@@ -247,6 +254,8 @@ function newGame(seed, learn = false) {
   G.eyeT = 0; G.eyeUsed = rng() < 0.6 ? false : true; G.popT = 0; G.popAt = null; G.bubbleOn = true; G.fussAt = 0; G.talkAt = rnd(18, 30); G.papaTalkAt = rnd(35, 50)
   G.strongT = 0; G.minLate = null; G.gek = G.cock = G.lineOn = G.blk = G.wail2 = false; G.cause = null; G.line = ''
   G.learn = learn ? { push: 0, handled: 0, shown: '', joltT: 0 } : null
+  mqR = mulberry(seed * 7 + 11)   // 蚊は別のくじ（邪魔者の順番を変えない）
+  G.mq = null; G.mqWaitTo = null; G.mqNext = mrnd(MQ.first[0], MQ.first[1]); G.mqSeen = 0; G.mqKills = 0; G.mqBites = 0; G.mqNear = 0; G.itchT = 0
 }
 const progress = () => clamp(G.t / DUR, 0, 1)
 const amp = () => Math.hypot(G.th, G.v / W0)
@@ -355,6 +364,94 @@ function schedule() {
 // sim でも動く「何秒後に」
 function setTimeout0(sec, f) { (G.later = G.later || []).push({ at: G.t + sec, f }) }
 
+// ============================================================ 蚊（v3）
+// 赤ちゃんの顔の位置（かごの振れから計算する。sim でも同じ）
+// 起動時に、寝顔の絵（b_deep）の顔の位置から測り直す（calibHead）。これは届く前の仮の値
+const HEAD_L = { x: -0.04, y: -0.6, z: 0.17 }
+function headW(out, th = G.th) { const a = th * MAXANG, c = Math.cos(a), s = Math.sin(a); return out.set(PIVOT.x + HEAD_L.x * c - HEAD_L.y * s, PIVOT.y + HEAD_L.x * s + HEAD_L.y * c, PIVOT.z + HEAD_L.z) }
+const _h0 = new THREE.Vector3(), _h1 = new THREE.Vector3()
+function mqSpawn() {
+  const m = { st: 'fly', t: 0, T: MQ.T * mrnd(0.92, 1.12), ph: mrnd(0, Math.PI * 2), w: (mqR() < 0.5 ? -1 : 1) * mrnd(0.75, 1.0), p: new THREE.Vector3(), off: [0, 0, 0], d: 1, near: false, born: Math.round(G.t * 100) / 100, vx: 0 }
+  G.mq = m; G.mqSeen++; ev('spawn:mosq'); mqPos(m)
+  if (!SIM) {
+    Snd.loop('mosq', S_('mosq'), 0.05, 0.3)
+    if (!G.shown.mosq) { G.shown.mosq = 1; say('hint', L(BN.HINT.mosq), '', 3.2) }
+  }
+}
+// 位置: 顔のまわりを回りながら、だんだん近づく（遠いうちは揺れるかごに付いて行かない）
+function mqPos(m) {
+  const x0 = m.p.x
+  if (m.st === 'dead') { m.p.copy(m.p0); m.p.y -= Math.min(0.45, m.t * m.t * 2.2); m.p.x += Math.sin(m.t * 9) * 0.01; return }
+  let off, k = 1
+  if (m.st === 'fly') {
+    k = ease(m.t / m.T); const r = lerp(0.62, 0.05, k * k), a = m.ph + m.t * m.w   // しばらく遠くを回り、後半で一気に寄る
+    off = [Math.cos(a) * r * 0.45 + Math.sin(m.t * 7.3) * 0.012, Math.sin(a) * r * 0.72 + 0.12 * (1 - k) + Math.sin(m.t * 11.7) * 0.01, Math.sin(a * 0.7) * r * 0.2 - 0.12 * (1 - k)]
+  } else if (m.st === 'leave') { const q = m.t / 1.2; off = [0.05 + q * 0.55 * Math.sign(m.w), 0.03 + q * 0.6, 0.03] }
+  else off = [-0.035, -0.012 + Math.sin(m.t * 30) * 0.002, 0.035]   // ほっぺに止まっている
+  headW(_h1); headW(_h0, 0); _h0.lerp(_h1, m.st === 'fly' ? k * k : 1)
+  m.p.set(_h0.x + off[0], _h0.y + off[1], _h0.z + off[2]); m.off = off
+  m.d = Math.hypot(off[0], off[1], off[2]); m.near = m.st === 'land' || (m.st === 'fly' && m.d < MQ.NEAR + (m.near ? 0.06 : 0))   // 境目で輪の色がちらつかないよう幅を持たせる
+  m.vx = m.p.x - x0
+}
+function stepMosq(dt) {
+  const m = G.mq
+  if (!m) {
+    if (G.learn || G.t < G.mqNext || G.t > MQ.last) return
+    // ほかの邪魔者が鳴っている・2つ以上いる時は少し待つ（画面が混みすぎない。最大4秒まで待つ）
+    const live = G.noises.filter(n => n.st === 'warn' || n.st === 'on')
+    if ((live.length >= 2 || live.some(n => n.st === 'on')) && G.t < (G.mqWaitTo ??= G.t + 4)) return
+    G.mqWaitTo = null
+    mqSpawn(); return
+  }
+  m.t += dt
+  if (m.st === 'fly' && m.t >= m.T) { m.st = 'land'; m.t = 0; ev('land:mosq') }
+  else if (m.st === 'land' && m.t >= MQ.LAND) {
+    // 刺した: 赤ちゃんがぐずる
+    m.st = 'leave'; m.t = 0; G.mqBites++; G.S -= MQ.BITE; hurt('mosq', MQ.BITE); G.itchT = 2.4; ev('bite:mosq')
+    sfx('fuss', { vol: 0.5 }); sayAt('baby', L(BN.MOSQ.bite), 'loud', 1.8)
+    if (!SIM) fx.shake(0.03, 0.3)
+  }
+  else if ((m.st === 'leave' && m.t >= 1.2) || (m.st === 'dead' && m.t >= 1.1)) { G.mq = null; G.mqNext = G.t + mrnd(MQ.gap[0], MQ.gap[1]); if (!SIM) Snd.loop('mosq', null, 0, 0.3); return }
+  mqPos(m)
+  // 羽音は顔に近いほど大きい
+  if (!SIM && m.st !== 'dead' && (m.vt = (m.vt || 0) - dt) <= 0) { m.vt = 0.1; const l = Snd.loops.mosq; if (l && l.g && Snd.ctx) l.g.gain.setTargetAtTime(0.05 + 0.32 * clamp(1 - m.d / 0.7, 0, 1), Snd.ctx.currentTime, 0.12) }
+}
+function mqAlive() { return G.mq && (G.mq.st === 'fly' || G.mq.st === 'land') }
+const mqXY = () => toScreen(G.mq.p)
+// 判定は見た目（絵は56px、体は約40px）より大きい円
+const mqHitR = () => clamp(innerWidth * 0.125, 46, 60)
+// パチン。顔の近くで叩くと、その音で起きかける
+function swat() {
+  if (G.busy > 0) return 'busy'
+  const m = G.mq; G.busy = BUSY
+  if (!SIM) handTo(mqXY())
+  const near = m.near
+  m.st = 'dead'; m.t = 0; m.p0 = m.p.clone(); G.mqKills++
+  sfx('smack', { vol: near ? 1 : 0.55 })
+  if (!SIM) Snd.loop('mosq', null, 0, 0.06)
+  if (near) {
+    G.S -= MQ.SWAT_NEAR; hurt('swat', MQ.SWAT_NEAR); G.mqNear++; ev('swat:near')
+    if (G.S > 25) G.eyeT = 1.3
+    sayAt('baby', L(BN.MOSQ.near), 'loud', 1.5)
+    if (!SIM) { fx.shake(0.04, 0.3); flash(0.25) }
+  } else { ev('swat:far'); sayAt('mosq', L(BN.MOSQ.kill), 'done', 1.3) }
+  if (G.S <= 0) finish('cry')
+  return near ? 'near' : 'kill'
+}
+// 画面のある点を押した: 蚊 → かご → 音の出どころ の順に当てる
+function tapAt(x, y, inCradle) {
+  if (G.mode !== 'play' || G.over) return 'off'
+  if (mqAlive()) {
+    const p = mqXY(), d = Math.hypot(p.x - x, p.y - y)
+    if (d < mqHitR()) return swat()
+    // 蚊のすぐ横の空振りは、かごや物に当てない（狙ったのは蚊なので、ガタッにしない）
+    if (d < mqHitR() * 1.7) { if (G.busy > 0) return 'busy'; G.busy = BUSY * 0.6; if (!SIM) handTo({ x, y }); ev('whiff:mosq'); return 'whiff' }
+  }
+  if (inCradle == null) { const r = cradleRect(); inCradle = x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 }
+  if (inCradle) return push()
+  const s = hitSrc(x, y); return s ? tapSrc(s) : 'none'
+}
+
 function stepNoise(n, dt) {
   const D = BN.NOISE[n.kind]
   n.t += dt
@@ -403,6 +500,8 @@ function stepGame(dt) {
   if (G.curtain > 0) G.curtain -= dt
   for (const n of G.noises) stepNoise(n, dt)
   G.noises = G.noises.filter(n => !n.dead)
+  stepMosq(dt)
+  if (G.itchT > 0) G.itchT -= dt
   if (G.later) { for (const l of G.later) if (G.t >= l.at && !l.done) { l.done = true; l.f() } G.later = G.later.filter(l => !l.done) }
   schedule()
   G.S = Math.min(100, G.S)
@@ -424,7 +523,8 @@ function finish(kind) {
   if (G.over) return
   G.over = kind; G.endT = 0; ev('end:' + kind)
   for (const n of G.noises) if (n.st === 'warn' || n.st === 'on') n.st = 'gone'
-  if (!SIM) { Snd.loop('karaoke', null); Snd.loop('vac', null); Snd.loop('bgm', null, 0, 0.2) }
+  if (G.mq && G.mq.st !== 'dead') G.mq = null
+  if (!SIM) { Snd.loop('karaoke', null); Snd.loop('vac', null); Snd.loop('mosq', null, 0, 0.2); Snd.loop('bgm', null, 0, 0.2) }
   G.cause = kind === 'cry' ? causeOf() : null
   G.line = kind === 'cry' ? L(BN.CAUSE[G.cause] || BN.GEKIGA[Math.floor(rng() * BN.GEKIGA.length)]) : L(BN.WIN_GEKIGA)
   if (kind === 'cry') { G.S = 0; sfx('wail', { vol: 1 }); if (!SIM) { fx.shake(0.07, 0.6); cutin('c_wail') } }
@@ -436,7 +536,7 @@ function result() {
   const mean = G.t > 0 ? G.sumS / G.t : 0
   const points = ko ? Math.round(Math.min(39, G.t / 3)) : Math.round(clamp(mean, 0, 100))
   const title = ko ? L(BN.KO_TITLES.find(r => sec >= r.sec).t) : L(BN.TITLES.find(r => points >= r.min).t)
-  return { ko, sec, points, title, mean: Math.round(mean), prevented: G.prevented, stopped: G.stopped, through: G.through, jolts: G.jolts, good: G.good, line: G.line, cause: G.cause, minLate: G.minLate ?? null }
+  return { ko, sec, points, title, mean: Math.round(mean), prevented: G.prevented, stopped: G.stopped, through: G.through, jolts: G.jolts, good: G.good, line: G.line, cause: G.cause, minLate: G.minLate ?? null, mq: { seen: G.mqSeen, kills: G.mqKills, bites: G.mqBites, near: G.mqNear } }
 }
 
 // ============================================================ 初めての1回: 遊びの中で、その時に合わせて教える（止まって待たない）
@@ -470,7 +570,7 @@ const VIEWS = ['vTitle', 'vHow', 'vPlay', 'vResult']
 function show(id) { for (const v of VIEWS) $(v).hidden = v !== id; $('bMute').hidden = id === 'vResult' }
 const v3 = new THREE.Vector3()
 function toScreen(p) { v3.copy(p).project(camera); return { x: (v3.x + 1) / 2 * innerWidth, y: (1 - v3.y) / 2 * innerHeight } }
-function srcXY(src) { return src === 'baby' ? babyXY() : toScreen(SRC[src]) }
+function srcXY(src) { return src === 'baby' ? babyXY() : src === 'mosq' ? (G.mq ? toScreen(G.mq.p) : babyXY()) : src && typeof src === 'object' ? src : toScreen(SRC[src]) }
 function babyXY() { const p = new THREE.Vector3(0, 0.3, 0); baby.localToWorld(p.set(-0.1, 0.75, 0)); return toScreen(p) }
 function cradleRect() {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9
@@ -524,7 +624,7 @@ function cradleDom() {
 let handAnim = null
 function handTo(src) {
   const r = cradleR || cradleRect(), from = { x: (r.x0 + r.x1) / 2 + 40, y: r.y1 - 60 }
-  const to = src ? srcXY(src) : toScreen(new THREE.Vector3(G.th > 0 ? 0.3 : -0.3, 0.5, PIVOT.z + 0.15))
+  const to = src ? (typeof src === 'object' ? src : srcXY(src)) : toScreen(new THREE.Vector3(G.th > 0 ? 0.3 : -0.3, 0.5, PIVOT.z + 0.15))
   handAnim = { from, to, t: 0, d: src ? BUSY : 0.25 }
 }
 function handDom(dt) {
@@ -549,6 +649,15 @@ function fingerDom() {
   const k = (G.clock % 0.7) / 0.7
   f.style.left = p.x + 'px'; f.style.top = (p.y + (k < 0.5 ? k * 14 : (1 - k) * 14)) + 'px'
 }
+// 蚊（DOM の絵。判定は tapAt）。顔の近くにいる間は輪が赤い＝今叩くと起きる
+function mosqDom() {
+  const e = $('mosq'), m = G.mode === 'play' && !G.over ? G.mq : null
+  if (!m) { if (!e.hidden) e.hidden = true; return }
+  const p = toScreen(m.p); e.hidden = false
+  if (Math.abs(m.vx) > 0.0004) e.dataset.dir = m.vx > 0 ? 'r' : 'l'
+  e.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`
+  e.classList.toggle('near', m.near && m.st !== 'dead'); e.classList.toggle('dead', m.st === 'dead'); e.classList.toggle('land', m.st === 'land')
+}
 function cutin(img, hold) {
   if (SIM) return
   const c = $('cutin'); c.querySelector('img').src = 'img/' + img + '.webp'
@@ -557,11 +666,11 @@ function cutin(img, hold) {
 
 // ---- 指の操作: かご＝押す、それ以外＝音の出どころ
 const cradleHit = $('cradleHit')
-cradleHit.addEventListener('pointerdown', e => { if (G.mode !== 'play' || G.over) return; e.preventDefault(); firstTouch(); push() })
+cradleHit.addEventListener('pointerdown', e => { if (G.mode !== 'play' || G.over) return; e.preventDefault(); firstTouch(); tapAt(e.clientX, e.clientY, true) })
 canvas.addEventListener('pointerdown', e => {
   if (G.mode !== 'play' || G.over) return
   e.preventDefault(); firstTouch()
-  const s = hitSrc(e.clientX, e.clientY); if (s) tapSrc(s)
+  tapAt(e.clientX, e.clientY, false)
 })
 
 // ============================================================ 毎フレームの見た目
@@ -666,7 +775,7 @@ function babyLook(dt) {
   else if (G.over === 'win') name = 'b_wake'
   else if (G.eyeT > 0) name = 'b_eye'
   else if (G.mode !== 'play') name = 'b_deep'
-  else if (S < 35) name = 'b_fuss'
+  else if (S < 35 || G.itchT > 0) name = 'b_fuss'
   else if (S < 60 || amp() > OK_HI) name = 'b_light'
   setPaper(baby, name, 0.36)
   baby.position.set(0, 0, 0)
@@ -704,7 +813,8 @@ function firstTouch() {
 let resultShown = false
 function startPlay(learn = false) {
   const seed = params.has('seed') ? +params.get('seed') : (Date.now() % 100000) + G.playNo * 7
-  G.texts = { bubble: null, hint: null }; resultShown = false
+  G.texts = { bubble: null, hint: null }; resultShown = false; window.__lastResult = null
+  if (!SIM) Snd.loop('mosq', null, 0, 0.1)   // 前の回の羽音を残さない
   newGame(seed, learn); G.mode = 'play'
   $('gekiga').hidden = true; $('gekiga').classList.remove('out'); $('gekigaLine').classList.remove('on')
   $('cutin').classList.remove('on', 'hold')
@@ -804,6 +914,17 @@ async function drawCard(r) {
   if (ph) { const h = phh - 30, w = Math.min(pw - 24, ph.width / ph.height * h); x.drawImage(ph, -w / 2, -phh / 2 + 16, w, w / (ph.width / ph.height)) }
   x.fillStyle = 'rgba(233,165,182,.75)'; x.fillRect(-60, -phh / 2 - 14, 120, 30)
   x.restore()
+  // 付箋: 倒した蚊（蚊が来た回だけ）
+  if (r.mq && r.mq.seen) {
+    const en = lang === 'en', k = r.mq.kills, b = r.mq.bites
+    const joke = b >= 2 ? (en ? 'itchy all over' : 'ぷっくり祭り') : b ? (en ? `bitten ${b}` : `刺され ${b}`) : r.mq.near >= 2 ? (en ? 'loud hands' : '拍手が大きい') : k >= 3 ? (en ? 'mosquito hunter' : '蚊の天敵') : k ? (en ? 'no bites' : '刺されず') : ''
+    x.save(); x.translate(646, 470); x.rotate(0.06)
+    x.fillStyle = 'rgba(0,0,0,.14)'; x.fillRect(-54, -60, 112, 128); x.fillStyle = '#fff3a8'; x.fillRect(-58, -66, 112, 128)
+    x.fillStyle = '#2b2620'; x.textAlign = 'center'; x.font = `600 ${en ? 17 : 21}px ${pen}`; x.fillText(en ? 'Mosquitoes' : '倒した蚊', -2, -34)
+    x.font = `600 40px ${pen}`; x.fillText(en ? '× ' + k : k + '匹', -2, 12)
+    if (joke) { x.font = `600 ${en ? 15 : 18}px ${pen}`; x.fillStyle = b ? '#b0402c' : '#5a4c3a'; let fs = en ? 15 : 18; while (x.measureText(joke).width > 100 && fs > 11) { fs--; x.font = `600 ${fs}px ${pen}` } x.fillText(joke, -2, 46) }
+    x.restore()
+  }
   // ひとこと（銃のときは劇画の字）
   x.textAlign = 'center'
   if (r.ko) {
@@ -826,8 +947,8 @@ function applyLang() {
   document.documentElement.lang = lang
   $('t1').textContent = T('title1'); $('t2').textContent = T('title2'); $('tSub').textContent = T('sub')
   $('bStart').textContent = T('start'); $('bHow').textContent = T('how'); $('bLang').textContent = T('lang')
-  $('howH').textContent = T('how'); $('howWarn').textContent = L(BN.HOWTO.warn); $('bHowClose').textContent = T('close'); $('lPrivacy').textContent = T('privacy')
-  $('howCredit').textContent = lang === 'en' ? 'Sounds: Jhang Y & Oller D (CC BY 4.0), Andreas Richter (CC BY 3.0), Kenney, Commons and OpenGameArt contributors (CC0/PD)' : '音: Jhang Y・Oller D（CC BY 4.0）、Andreas Richter（CC BY 3.0）ほか CC0 と パブリックドメインの録音'
+  $('howH').textContent = T('how'); $('howWarn').textContent = L(BN.HOWTO.warn); $('howMosq').textContent = L(BN.HOWTO.mosq); $('bHowClose').textContent = T('close'); $('lPrivacy').textContent = T('privacy')
+  $('howCredit').textContent = lang === 'en' ? 'Sounds: Jhang Y & Oller D (CC BY 4.0), Andreas Richter (CC BY 3.0), Gravity Sound (CC BY 4.0), Kenney, Commons and OpenGameArt contributors (CC0/PD)' : '音: Jhang Y・Oller D（CC BY 4.0）、Andreas Richter（CC BY 3.0）、Gravity Sound（CC BY 4.0）ほか CC0 と パブリックドメインの録音'
   const ruleImg = ['img/b_deep.webp', 'img/d_alert.webp', 'img/b_fuss.webp']
   $('howRules').innerHTML = ''
   BN.HOWTO.rules.forEach(([a, b], i) => {
@@ -861,19 +982,24 @@ function logic(dt) {
     G.th = Math.sin(G.clock * W0) * 0.45; G.v = 0
   }
 }
-function render(dtR) {
+// dbg.step を1回の evaluate で何百回も呼ぶと、WebGL の描画が溜まって共有の GPU プロセスが詰まり、
+// 同じブラウザで次のページが開かなくなる（verify が「文字は2つまで」の後で止まっていた原因）。
+// dbg から呼んだ描画は、同じコマの中では2回目から WebGL を飛ばして DOM と行列だけ更新する
+let glFrame = 0, glDone = -1
+function render(dtR, fromDbg) {
   const vdt = fx.update(dtR)
   swingLook(); babyLook(vdt); castLook()
   for (const m of PAPERS) { if (!m.visible || !m.userData.face) continue; m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z) }
   babyPivot.rotation.x = -0.62
   camera.position.copy(CAM.p); camera.lookAt(CAM.t)
   look.update(); fx.applyCamera()
-  renderer.render(scene, camera)
-  if (G.mode === 'play') { cradleDom(); textsDom(); clockDom(); marksDom(); handDom(dtR); fingerDom() }
-  else { for (const k of ['bubble', 'hint']) $(k).hidden = true; $('marks').innerHTML = ''; fingerDom(); handDom(dtR) }
+  if (fromDbg && glDone === glFrame) { scene.updateMatrixWorld(); camera.updateMatrixWorld() }
+  else { renderer.render(scene, camera); glDone = glFrame }
+  if (G.mode === 'play') { cradleDom(); textsDom(); clockDom(); marksDom(); mosqDom(); handDom(dtR); fingerDom() }
+  else { for (const k of ['bubble', 'hint']) $(k).hidden = true; $('marks').innerHTML = ''; mosqDom(); fingerDom(); handDom(dtR) }
 }
 function loop(now) {
-  requestAnimationFrame(loop)
+  requestAnimationFrame(loop); glFrame++
   let dt = (now - last) / 1000; last = now
   if (dt > 0.25) dt = 0.25
   if (!G.paused) { acc += dt * (G.speed || 1); let n = 0; while (acc >= STEP && n < 240) { logic(STEP); acc -= STEP; n++ } }
@@ -882,8 +1008,8 @@ function loop(now) {
 
 // ============================================================ 検証用の窓口と bot
 const api = {
-  get state() { return { mode: G.mode, t: G.t, S: G.S, th: G.th, v: G.v, amp: amp(), win: inWindow(), busy: G.busy, over: G.over, noises: (G.noises || []).map(n => ({ kind: n.kind, src: n.src, st: n.st, t: n.t, warn: n.warn, at: n.at })), good: G.good, jolts: G.jolts, prevented: G.prevented, stopped: G.stopped, through: G.through, learn: G.learn && { ...G.learn }, eyeT: G.eyeT, bubble: G.bubbleOn, face: baby.userData.tex } },
-  push, tapSrc, result, srcXY, SRC: Object.keys(SRC),
+  get state() { return { mode: G.mode, t: G.t, S: G.S, th: G.th, v: G.v, amp: amp(), win: inWindow(), busy: G.busy, over: G.over, noises: (G.noises || []).map(n => ({ kind: n.kind, src: n.src, st: n.st, t: n.t, warn: n.warn, at: n.at })), good: G.good, jolts: G.jolts, prevented: G.prevented, stopped: G.stopped, through: G.through, learn: G.learn && { ...G.learn }, eyeT: G.eyeT, bubble: G.bubbleOn, face: baby.userData.tex, mosq: G.mq ? (() => { const m = G.mq, q = toScreen(m.p); return { st: m.st, t: m.t, T: m.T, x: q.x, y: q.y, d: m.d, near: m.near, born: m.born } })() : null, mq: { seen: G.mqSeen, kills: G.mqKills, bites: G.mqBites, near: G.mqNear }, mqNext: G.mqNext } },
+  push, tapSrc, tapAt, result, srcXY, SRC: Object.keys(SRC), mqHitR, headXY: () => toScreen(headW(new THREE.Vector3())),
   cradleXY() { const r = cradleRect(); return { x: (r.x0 + r.x1) / 2, y: (r.y0 + Math.min(r.y1, r.y0 + 200)) / 2 + 20 } },
   texts: () => Object.values(G.texts).filter(Boolean).map(v => v.text),
   events: () => G.events.slice(),
@@ -894,17 +1020,17 @@ const api = {
     let n = 0
     const trace = []
     while (!G.over && n < 60 * 200) { bot(api, st, STEP); stepGame(STEP); n++; if (o.trace && n % 30 === 0) trace.push([Math.round(G.t * 10) / 10, Math.round(G.S), Math.round(amp() * 100) / 100, G.noises.map(x => x.kind + ':' + x.st).join(',')]) }
-    const r = result(); r.events = o.events ? G.events.slice() : undefined; if (o.trace) r.trace = trace
+    const r = result(); r.events = o.events ? G.events.slice() : undefined; if (o.trace) r.trace = trace; r.mtaps = st.mtaps || 0; r.mhits = st.mhits || 0
     SIM = false; G.mode = keepMode === 'play' ? 'title' : keepMode; G.over = null
     return r
   },
   dbg: {
     pause(v = true) { G.paused = v; if (!v) last = performance.now() },
-    step(n = 1) { for (let i = 0; i < n; i++) logic(STEP); render(0) },
+    step(n = 1) { for (let i = 0; i < n; i++) logic(STEP); render(0, true) },
     tick(n = 1) { for (let i = 0; i < n; i++) logic(STEP) },
     speed(k) { G.speed = k },
-    render() { render(0) },
-    G, newGame, startPlay, showResult, spawn, finish, cutin,
+    render() { render(0, true) },
+    G, newGame, startPlay, showResult, spawn, finish, cutin, mqSpawn, MQ,
     set(o) { Object.assign(G, o) },
     camera, scene, CAM, say, sayAt,
   },
@@ -923,6 +1049,19 @@ const BOTS = {
   good(api, st, dt) {
     const s = api.state; st.seen = st.seen || {}; st.cool = (st.cool || 0) - dt
     const react = st.react ?? 0.6, lo = st.lo ?? 0.5
+    // 蚊: 気づいたら、顔から離れているうちに叩く。顔に近い間は待ち、止まったら刺される前に叩く（人の指は少し遅れて少しずれる）
+    const m = s.mosq
+    if (m && (m.st === 'fly' || m.st === 'land')) {
+      st.mh = st.mh || []; st.mh.push([s.t, m.x, m.y]); while (st.mh.length > 2 && st.mh[0][0] < s.t - 0.6) st.mh.shift()
+      st.mseen = st.mid === m.born ? st.mseen + dt : 0; st.mid = m.born
+      const go = st.mseen >= (st.mreact ?? react) && st.cool <= 0 && s.busy <= 0 && (!m.near || m.st === 'land' || (st.reckless && st.r() < st.reckless * dt))
+      if (go) {
+        const lag = st.lag ?? 0.15, aim = st.aim ?? 12, h = st.mh.find(h => h[0] >= s.t - lag) || st.mh[0]
+        const g = () => { const u = Math.max(1e-9, st.r()), v = st.r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) }
+        const r = api.tapAt(h[1] + g() * aim, h[2] + g() * aim); st.mtaps = (st.mtaps || 0) + 1; if (r === 'kill' || r === 'near') st.mhits = (st.mhits || 0) + 1
+        st.cool = st.gap ?? 0.3; return
+      }
+    }
     let want = null
     for (const n of s.noises) if (n.st === 'warn' || n.st === 'on') { const k = n.kind + n.at; st.seen[k] = (st.seen[k] || 0) + dt; if (st.seen[k] >= react && (!want || n.st === 'on')) want = n }
     if (want && (!s.win || want.st === 'on' || want.t > want.warn - 0.8 || s.amp > lo) && st.cool <= 0) { const r = api.tapSrc(want.src); if (r !== 'busy') { if (r !== 'hit') st.seen[want.kind + want.at] = -99; st.cool = st.gap ?? 0.3 } return }
@@ -933,8 +1072,8 @@ const BOTS = {
     if (st.sloppy && st.r() < st.sloppy * dt) api.push()   // 普通の人は時々途中で押す
   },
 }
-BOTS.slow = (api, st, dt) => { st.react = st.react ?? 2.0; BOTS.normal(api, st, dt) }
-BOTS.normal = (api, st, dt) => { st.react = st.react ?? 1.6; st.lo = st.lo ?? 0.45; st.miss = st.miss ?? 0.35; st.sloppy = st.sloppy ?? 0.25; st.gap = st.gap ?? 0.45; BOTS.good(api, st, dt) }
+BOTS.slow = (api, st, dt) => { st.react = st.react ?? 2.0; st.lag = st.lag ?? 0.3; st.aim = st.aim ?? 20; BOTS.normal(api, st, dt) }
+BOTS.normal = (api, st, dt) => { st.react = st.react ?? 1.6; st.lag = st.lag ?? 0.22; st.aim = st.aim ?? 16; st.reckless = st.reckless ?? 0.15; st.lo = st.lo ?? 0.45; st.miss = st.miss ?? 0.35; st.sloppy = st.sloppy ?? 0.25; st.gap = st.gap ?? 0.45; BOTS.good(api, st, dt) }
 
 // ============================================================ 起動
 applyLang()
@@ -942,13 +1081,22 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => appl
 const PRE = ['b_deep', 'p_nap', 'd_sleep', 'cuckoo']
 const LATER = ['k_cym', 'k_taiko', 'k_caught', 'p_vac', 'p_off', 'p_stretch', 'g_milk', 'b_light', 'b_fuss', 'b_wail', 'b_eye', 'b_wake', 'p_sneeze', 'p_pinch', 'd_alert', 'd_bark', 'd_chew', 'k_horn', 'k_shh', 'car', 'imo', 'c_wail', 'g_aim']
 let readyDone = false
+// 顔の位置を、かごの中の寝顔の絵から取る（絵の縦横比で変わるので、絵が届いてから1回）
+function calibHead() {
+  const th = swing.rotation.z; swing.rotation.z = 0; babyPivot.rotation.x = -0.62; setPaper(baby, 'b_deep', 0.36); scene.updateMatrixWorld(true)
+  const p = baby.localToWorld(new THREE.Vector3(-0.1, 0.62, 0)); swing.worldToLocal(p)
+  HEAD_L.x = p.x; HEAD_L.y = p.y; HEAD_L.z = p.z; swing.rotation.z = th; scene.updateMatrixWorld(true)
+}
 function ready() {
   if (readyDone) return; readyDone = true
+  calibHead()
   for (const n of LATER) tex(n)
   for (const n of ['c_wail', 'g_aim', 'g_milk']) { const i = new Image(); i.src = 'img/' + n + '.webp' }
   window.__bootDone = true; $('boot').classList.add('gone')
   G.mode = 'title'; show('vTitle')
   window.__bnReady = true
+  // 確認用: ?bot=normal で人の速さの bot が実時間で遊ぶ（iOS シミュレーターはタップを送れないため。触らないので音は鳴らない）
+  if (params.has('bot') && BOTS[params.get('bot')]) { G.playNo++; startPlay(false); G.bot = BOTS[params.get('bot')]; G.botSt = null; if (params.has('t0')) G.t = +params.get('t0') }
 }
 let pending = PRE.length
 for (const n of PRE) { const t = tex(n); const chk = () => { if (t.image && t.image.complete !== false && t.image.width) { if (window.__bootStep) __bootStep(); if (--pending <= 0) ready() } else setTimeout(chk, 50) }; chk() }

@@ -21,6 +21,7 @@ window.BN = {
       [['鳴る前に、止める', 'Stop noises before they start'], ['影・耳・ほっぺ・光。気配が出た所をタップ。連打が要る物もある。手は1本なので、揺らす手が一瞬止まる', 'A shadow, perked ears, puffed cheeks, a lit screen. Tap it, some need several taps. You only have one hand, so the cradle waits']],
       [['鼻ちょうちんが命', 'Watch the snot bubble'], ['ふくらんでいれば熟睡。割れたら起きかけ。泣ききったら、終わり', 'Big bubble, deep sleep. If it pops, the baby is stirring. If the baby cries it out, it is over']],
     ],
+    mosq: ['蚊はタップで退治。顔の近く（赤い輪）で叩くと、その音で起きる', 'Tap mosquitoes away. Swat one by the face (red ring) and the smack wakes the baby'],
     warn: ['泣かせきったら、赤ちゃんが本気を出す', 'Make the baby cry it out, and the baby gets serious'],
   },
   // 初めての1回、遊びの中で出す一文（止まって待たない）
@@ -32,6 +33,7 @@ window.BN = {
     multi: ['連打で止める', 'Tap it again to stop it'],
     thunder: ['光った！鳴る前に窓をタップ', 'Lightning! Tap the window before the boom'],
     vacuum: ['動く掃除機を追ってタップ', 'Chase the vacuum and tap it'],
+    mosq: ['蚊だ！顔から離れたうちにタップ', 'Mosquito! Swat it while it is away from the face'],
   },
   // 邪魔者。warn=気配の秒数、drain=鳴っている間に眠りが減る量（毎秒）、one=一発で減る量、len=放っておくと鳴る秒数
   NOISE: {
@@ -61,6 +63,12 @@ window.BN = {
     { at: 90, t: ['14:30 ばあば襲来', '2:30 PM  Grandma incoming'] },
   ],
   CLIMAX: ['全員集合！', 'Everyone at once!'],
+  // v3 蚊
+  MOSQ: {
+    kill: ['（仕留めた）', '(got it)'],
+    near: ['……ビクッ', '...flinch'],
+    bite: ['ぷくっ……かゆ……', 'bump... itchy...'],
+  },
   COMBO: ['チャイムで犬も！', 'The doorbell sets off the dog!'],
   // 起こした原因で変わる劇画の一言
   CAUSE: {
@@ -82,6 +90,8 @@ window.BN = {
     clock: ['時間は守れ。……だが鳴らすな', 'Keep time. Just keep it quiet.'],
     thunder: ['雷より怖いもんを、教えてやる', "I'll show you something scarier than thunder."],
     vacuum: ['吸い込むのは、ほこりだけにしな', 'Only suck up the dust, pal.'],
+    mosq: ['蚊一匹に、俺の頬をくれてやったな', 'You let one mosquito have my cheek.'],
+    swat: ['耳元で拍手とは、いい度胸だ', 'Clapping by my ear. Bold move.'],
   },
   WIN_GEKIGA: ['……悪くない昼寝だった', '...Not a bad nap.'],
   // 寝言（遊びには関係しない）

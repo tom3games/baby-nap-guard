@@ -46,4 +46,4 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('not found')
   }
-}).listen(PORT, () => console.log(`http://localhost:${PORT}`))
+}).listen(PORT, function () { console.log(`http://localhost:${this.address().port}`) })   // PORT=0 で空いている番号を使う（実際の番号を出す）
