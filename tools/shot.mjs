@@ -35,6 +35,7 @@ for (const sc of (scenes.length ? scenes : ['title'])) {
       if (sc === 'mosqnear') { G.t = 40; G.mqNext = 999; d.step(20); d.mqSpawn(); G.mq.t = G.mq.T - 0.6; d.step(2) }
       if (sc === 'mosqbusy') { G.t = 66; G.mqNext = 999; d.step(20); d.spawn('thunder').t = 1; d.spawn('dog').t = 1; d.mqSpawn(); G.mq.t = 3; d.step(2) }
       if (sc === 'fuss') { d.step(20); G.S = 25; d.step(30) }
+      if (sc === 'idle') { G.next = 999; G.mqNext = 999; d.step(20); G.S = 85; G.lastPush = G.t; G.idleTurns = 0; d.step(Math.round(60 * 1.7 * 3.3)) }
       if (sc === 'eye') { d.step(20); G.eyeT = 1; d.step(5) }
       if (sc === 'cry') { d.step(20); G.S = 1; G.th = 0; G.v = 0; d.step(60 * 0.6) }
       if (sc === 'gekiga') { d.step(20); G.S = 1; G.th = 0; G.v = 0; d.step(60 * 3.0) }

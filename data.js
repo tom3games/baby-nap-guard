@@ -71,6 +71,7 @@ window.BN = {
   },
   COMBO: ['チャイムで犬も！', 'The doorbell sets off the dog!'],
   // 起こした原因で変わる劇画の一言
+  IDLE: [['ふぇ……', 'feh...'], ['ふぇぇ……ん', 'fehhh...'], ['んぅ……ゆらゆら……', 'mmh... rock me...']],
   CAUSE: {
     jolt: ['……揺らし方から、教えてやろうか', '...Want me to teach you how to rock a cradle?'],
     strong: ['揺らしすぎだ。……酔うだろうが', "Too much swinging. You'll make me sick."],

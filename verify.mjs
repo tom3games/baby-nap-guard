@@ -142,8 +142,20 @@ await t('音の出どころは3つの的とも、かごの押す場所と重な�
   expect(!r.length, r.join(','))
 })
 await t('起きかけ（ぐずる）間は普通の赤ちゃんの顔で、渋い顔は泣かせきった後だけ', async () => {
-  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.eyeT = 0; G.th = 0.5; G.v = 0; const out = {}; for (const s of [90, 50, 20, 3]) { G.S = s; d.render(); out[s] = bn.state.face } return out })
+  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.eyeT = 0; G.idleFuss = 0; G.th = 0.5; G.v = 0; const out = {}; for (const s of [90, 50, 20, 3]) { G.S = s; d.render(); out[s] = bn.state.face } return out })
   expect(r[90] === 'b_deep' && r[50] === 'b_light' && r[20] === 'b_fuss' && r[3] === 'b_fuss' && !Object.values(r).some(f => /^g_/.test(f)), JSON.stringify(r)); return r
+})
+// 2026-11-25 放置でぐずる: 押さないまま右の端を3回過ぎるとぐずり出し（顔・声・眠りが減る）、押すと収まる。2回目までは出ない
+await t('ゆりかごを3回揺らさずに放置するとぐずり出し、押すと収まる', async () => {
+  const r = await p.evaluate(() => { const d = bn.dbg, G = d.G; d.pause(true); G.noises = []; G.post = {}; G.busy = 0; G.learn = null; G.mq = null; G.mqNext = 999; G.next = 999; G.eyeT = 0; G.itchT = 0
+    G.S = 90; G.th = 0.6; G.v = 0; G.idleFuss = 0; G.idleTurns = 0; G.lastPush = G.t
+    const f0 = Snd.played.fuss || 0
+    d.tick(Math.round(60 * 1.7 * 2.3)); const at2 = { fuss: !!G.idleFuss, turns: G.idleTurns }
+    d.tick(Math.round(60 * 1.7 * 1.2)); d.render(); const at3 = { fuss: !!G.idleFuss, turns: G.idleTurns, face: bn.state.face, snd: (Snd.played.fuss || 0) - f0 }
+    const s3 = G.S; d.tick(60 * 2); const drop = Math.round(s3 - G.S)
+    G.th = 0.45; G.v = 0; const pr = bn.push(); d.render()
+    return { at2, at3, drop, pr, after: !!G.idleFuss } })
+  expect(!r.at2.fuss && r.at3.fuss && r.at3.face === 'b_fuss' && r.at3.snd > 0 && r.drop >= 6 && r.pr === 'ok' && !r.after, JSON.stringify(r)); return r
 })
 // ---- 蚊（v3 2026-11-11）: 出てくる・クリックで倒せる・放っておくと刺す・顔の近くで叩くと起きかける
 const mqSetup = (q, o = {}) => q.evaluate(o => { const d = bn.dbg, G = d.G; d.startPlay(); d.pause(true); G.t = 40; G.next = 999; G.fixed = {}; G.noises = []; G.post = {}; G.busy = 0; G.S = o.S ?? 80; G.th = 0.5; G.v = 0; G.eyeT = 0; G.mqNext = 999; G.mq = null; d.mqSpawn(); if (o.t != null) G.mq.t = o.t; if (o.land) { G.mq.st = 'land'; G.mq.t = 0 } d.step(1); return { ...bn.state.mosq, R: bn.mqHitR(), ring: document.getElementById('mosq').className, vis: !document.getElementById('mosq').hidden, svgW: document.querySelector('#mosq svg').getBoundingClientRect().width, loop: !!(Snd.loops.mosq && /mosq/.test(Snd.loops.mosq.url)) } }, o)

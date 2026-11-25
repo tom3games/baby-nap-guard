@@ -243,7 +243,7 @@ const mrnd = (a, b) => a + (b - a) * mqR()
 function newGame(seed, learn = false) {
   G.seed = seed; rng = mulberry(seed)
   G.t = 0; G.mode = 'play'; G.over = null; G.endT = 0
-  G.S = 72; G.th = 0.5; G.v = 0; G.busy = 0
+  G.S = 72; G.th = 0.5; G.v = 0; G.busy = 0; G.idleTurns = 0; G.lastPush = 0; G.idleFuss = 0; G.idleSndAt = 0
   G.good = 0; G.jolts = 0; G.prevented = 0; G.stopped = 0; G.through = 0; G.misses = 0
   G.sumS = 0; G.hist = []; G.log = []; G.events = []
   G.noises = []; G.post = {}   // post[src] = 片づけた後の見た目の残り秒
@@ -272,6 +272,7 @@ function push() {
     const dir = a < 0.15 ? (G.th > 0 ? -1 : 1) : -Math.sign(G.th) || 1
     const A2 = Math.hypot(a, KICK)
     G.v = dir * W0 * Math.sqrt(Math.max(0, A2 * A2 - G.th * G.th)); G.good++; ev('push')
+    G.idleTurns = 0; G.lastPush = G.t; G.idleFuss = 0
     if (G.learn) G.learn.push++
     sfx('creak', { vol: 0.35 })
     if (!SIM) handTo(null)
@@ -487,8 +488,21 @@ function stepGame(dt) {
   for (const k in G.post) if (G.post[k] > 0) G.post[k] -= dt
   if (G.winShut > 0) G.winShut -= dt
   // ふりこ（減衰つき）
+  const v0 = G.v
   G.v += (-W0 * W0 * G.th - 2 * DAMP * G.v) * dt; G.th += G.v * dt
   const a = amp()
+  // 2026-11-25 本人「ゆりかごを3回揺らさずに放置してたらぐずり出すように」: 押さないまま右の端を3回過ぎたら
+  // （止まりかけで揺れていない時は 3 往復ぶんの時間で）ぐずり出す。押すと収まる。放っておくほど眠りが速く減る
+  if (v0 > 0 && G.v <= 0 && G.th > 0) G.idleTurns++
+  if (!G.learn && !G.idleFuss && (G.idleTurns >= 3 || G.t - G.lastPush > 3 * 1.7 + 0.3)) {
+    G.idleFuss = 0.001; ev('idlefuss'); sfx('fuss', { vol: 0.5 }); G.idleSndAt = G.t + 1.6
+    if (!SIM) sayAt('baby', L(BN.IDLE[Math.floor(rng() * BN.IDLE.length)]), 'loud', 1.4)
+  }
+  if (G.idleFuss) {
+    G.idleFuss += dt
+    const d = (3 + 5 * clamp(G.idleFuss / 4, 0, 1)) * dt; G.S -= d; hurt('weak', d)
+    if (G.t >= G.idleSndAt) { sfx('fuss', { vol: 0.45 }); G.idleSndAt = G.t + 1.6 }
+  }
   // 端で「きい」（音だけ。合図には使わない）
   if (!SIM) { const s = Math.sign(G.v); if (G.lastSign && s !== G.lastSign && a > 0.25) sfx('creak', { vol: 0.08 + a * 0.12, rate: 1.1 }); G.lastSign = s }
   // 眠り
@@ -543,7 +557,7 @@ function result() {
 function learnStep(dt) {
   const l = G.learn
   if (l.joltT > 0) l.joltT -= dt
-  if ((l.push >= 3 && l.handled >= 1) || G.t > 42) { G.learn = null; store.set(TUT_KEY, '1'); unsay('hint'); return }
+  if ((l.push >= 3 && l.handled >= 1) || G.t > 42) { G.learn = null; G.lastPush = G.t; G.idleTurns = 0; store.set(TUT_KEY, '1'); unsay('hint'); return }
   const live = G.noises.find(n => n.st === 'warn' || n.st === 'on')
   if (live && l.handled < 1) hint('noise', live.src)
   else if (l.joltT > 0) hint('jolt')
@@ -775,7 +789,7 @@ function babyLook(dt) {
   else if (G.over === 'win') name = 'b_wake'
   else if (G.eyeT > 0) name = 'b_eye'
   else if (G.mode !== 'play') name = 'b_deep'
-  else if (S < 35 || G.itchT > 0) name = 'b_fuss'
+  else if (S < 35 || G.itchT > 0 || G.idleFuss) name = 'b_fuss'
   else if (S < 60 || amp() > OK_HI) name = 'b_light'
   setPaper(baby, name, 0.36)
   baby.position.set(0, 0, 0)
