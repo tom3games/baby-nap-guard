@@ -868,7 +868,7 @@ function showGekiga(img, win) {
 }
 async function showResult() {
   const r = result()
-  G.mode = 'result'; show('vResult')
+  G.mode = 'result'; show('vResult'); fitCard()   // 札の大きさを先に決める（描く前に原寸で出て縮むとガタつく）
   if (window.TM) TM.end(r.points, !r.ko)
   await drawCard(r)
   fitCard()
